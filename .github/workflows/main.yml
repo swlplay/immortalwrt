@@ -1,0 +1,89 @@
+name: Monitor and Build ImmortalWrt (x86_64 Master)
+
+on:
+  schedule:
+    # 每周一凌晨2点检查更新（北京时间上午10点，UTC+8），可根据需要调整
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # 允许手动触发
+
+env:
+  TARGET: x86
+  SUBTARGET: 64
+  WORKING_DIRECTORY: immortalwrt-source
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:11-slim
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        apt-get update
+        apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+          bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+          g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+          libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
+          libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
+          ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
+          python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
+          upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
+      # 依赖项列表参考了ImmortalWrt官方文档[citation:2][citation:4]
+
+    - name: Clone ImmortalWrt master branch
+      run: |
+        git clone -b master --single-branch --filter=blob:none https://github.com/immortalwrt/immortalwrt.git $WORKING_DIRECTORY
+
+    - name: Check for updates in master branch
+      id: check-update
+      run: |
+        cd $WORKING_DIRECTORY
+        # 获取当前最新提交的哈希值
+        git log -1 --format=%H > ../current_head.hash
+        echo "CURRENT_HEAD=$(cat ../current_head.hash)" >> $GITHUB_OUTPUT
+
+    - name: Check previous commit
+      id: check-previous
+      uses: actions/cache@v4
+      with:
+        path: ./cache
+        key: ${{ runner.os }}-immortalwrt-master-head
+
+    - name: Build ImmortalWrt if source updated
+      if: steps.check-previous.outputs.cache-hit != 'true' || steps.check-update.outputs.CURRENT_HEAD != hashFiles('cache/previous_head.hash')
+      run: |
+        set -e
+        cd $WORKING_DIRECTORY
+
+        # 更新和安装feeds
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+        # 配置为x86/64
+        make menuconfig <<<EOF
+        $TARGET
+        $SUBTARGET
+        EOF
+
+        # 开始编译
+        make -j$(nproc) || make -j1 V=s
+        # 编译策略：先多线程，失败后单线程详细输出[citation:1]
+
+    - name: Update cache if build successful
+      if: steps.check-previous.outputs.cache-hit != 'true' || steps.check-update.outputs.CURRENT_HEAD != hashFiles('cache/previous_head.hash')
+      run: |
+        mkdir -p cache
+        cp current_head.hash cache/previous_head.hash
+      # 使用actions/cache保存当前提交哈希[citation:4]
+
+    - name: Upload build artifacts
+      if: steps.check-previous.outputs.cache-hit != 'true' || steps.check-update.outputs.CURRENT_HEAD != hashFiles('cache/previous_head.hash')
+      uses: actions/upload-artifact@v4
+      with:
+        name: immortalwrt-x86-64-images
+        path: ${{ env.WORKING_DIRECTORY }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/
+        retention-days: 7
