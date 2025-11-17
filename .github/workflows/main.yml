@@ -35,7 +35,7 @@ jobs:
       shell: bash
       run: |
         apt-get update
-        apt-get install -y bash  # 确保安装bash
+        apt-get install -y bash
         apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
           bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
           g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
@@ -81,16 +81,13 @@ jobs:
         ./scripts/feeds install -a
         
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
-        # 使用逐行写入的方式创建配置文件，避免YAML解析问题
         echo "CONFIG_TARGET_$TARGET=y" > .config
         echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}=y" >> .config
         echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}_GENERIC=y" >> .config
         
-        # 应用默认配置
         make defconfig
         
         echo "开始编译..."
-        # 先尝试多线程编译，失败后使用单线程详细输出
         make -j$(nproc) || {
           echo "多线程编译失败，尝试单线程编译..."
           make -j1 V=s
@@ -102,13 +99,11 @@ jobs:
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
-        # 创建缓存目录
         mkdir -p .cache
         echo "Build completed for commit: ${{ env.CURRENT_HASH }}" > .cache/build-info.txt
         echo "构建完成时间: $(date)" >> .cache/build-info.txt
 
     - name: Upload build artifacts
-      shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
       with:
