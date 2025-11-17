@@ -2,8 +2,9 @@ name: Monitor and Build ImmortalWrt (x86_64 Master)
 
 on:
   schedule:
+    # 每周一凌晨2点检查更新（北京时间上午10点，UTC+8）
     - cron: '0 2 * * 1'
-  workflow_dispatch:
+  workflow_dispatch: # 允许手动触发
 
 env:
   TARGET: x86
@@ -24,61 +25,93 @@ jobs:
       shell: bash
       run: |
         apt-get update
+        apt-get install -y bash  # 确保安装bash
         apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
-          ... # 你的依赖列表
-        # 特别安装 bash
-        apt-get install -y bash
+          bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+          g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+          libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncurses-dev libpython3-dev \
+          libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
+          ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
+          python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
+          upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
 
     - name: Clone ImmortalWrt master branch
       shell: bash
       run: |
-        git clone -b master --single-branch --filter=blob:none https://github.com/immortalwrt/immortalwrt.git $WORKING_DIRECTORY
+        git clone -b master --depth=1 --single-branch --filter=blob:none https://github.com/immortalwrt/immortalwrt.git $WORKING_DIRECTORY
 
     - name: Check for updates in master branch
       id: check-update
       shell: bash
       run: |
         cd "$WORKING_DIRECTORY"
-        LATEST_COMMIT_HASH=$(git log -1 --format=%H)
-        echo "latest_commit_hash=$LATEST_COMMIT_HASH" >> "$GITHUB_OUTPUT"
-        echo "CURRENT_HASH=$LATEST_COMMIT_HASH" >> "$GITHUB_ENV"
+        LATEST_COMMIT_HASH=$(git rev-parse HEAD)
+        echo "latest_commit=$LATEST_COMMIT_HASH" >> $GITHUB_OUTPUT
+        echo "CURRENT_HASH=$LATEST_COMMIT_HASH" >> $GITHUB_ENV
+        echo "Latest commit hash: $LATEST_COMMIT_HASH"
 
     - name: Restore cached commit hash
-      id: cache-previous-hash
+      id: cache-hash
       uses: actions/cache@v4
       with:
-        path: ./.github/cache
-        key: immortalwrt-master-${{ env.CURRENT_HASH }}
+        path: .cache
+        key: immortalwrt-${{ env.CURRENT_HASH }}
+        restore-keys: |
+          immortalwrt-
 
     - name: Build ImmortalWrt if source updated
       shell: bash
-      # 如果缓存未命中，说明是一个新的提交，需要构建
-      if: steps.cache-previous-hash.outputs.cache-hit != 'true'
+      if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
-        set -e
+        set -ex
         cd "$WORKING_DIRECTORY"
-
+        
+        echo "开始更新feeds..."
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-
-        # 非交互式配置示例：直接复制预设的配置文件
-        # 假设你有一个名为 ".config" 的配置文件存放在你仓库的某个位置
-        # cp /path/to/your/.config ./.config
-
-        # 或者，使用默认配置并进入 menuconfig 自动确认（如果支持）
-        # make defconfig
-        # 这里我们简单地生成一个目标配置，你可能需要根据实际情况调整
-        echo "CONFIG_TARGET_$TARGET=y" > .config
-        echo "CONFIG_TARGET_$TARGET_$SUBTARGET=y" >> .config
+        
+        echo "配置编译目标为 $TARGET/$SUBTARGET..."
+        # 创建基本配置文件
+        cat > .config << EOF
+CONFIG_TARGET_${TARGET}=y
+CONFIG_TARGET_${TARGET}_${SUBTARGET}=y
+CONFIG_TARGET_${TARGET}_${SUBTARGET}_GENERIC=y
+EOF
+        
+        # 应用默认配置
         make defconfig
+        
+        echo "开始编译..."
+        # 先尝试多线程编译，失败后使用单线程详细输出
+        make -j$(nproc) || {
+          echo "多线程编译失败，尝试单线程编译..."
+          make -j1 V=s
+        }
+        
+        echo "编译完成！"
 
-        make -j"$(nproc)" || make -j1 V=s
+    - name: Save build cache
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |
+        # 创建缓存目录
+        mkdir -p .cache
+        echo "Build completed for commit: ${{ env.CURRENT_HASH }}" > .cache/build-info.txt
+        echo "构建完成时间: $(date)" >> .cache/build-info.txt
 
     - name: Upload build artifacts
       shell: bash
-      if: steps.cache-previous-hash.outputs.cache-hit != 'true'
+      if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
       with:
         name: immortalwrt-x86-64-images
-        path: ${{ env.WORKING_DIRECTORY }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/
+        path: ${{ env.WORKING_DIRECTORY }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*
         retention-days: 7
+        if-no-files-found: error
+
+    - name: Build skipped due to cache
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit == 'true'
+      run: |
+        echo "构建已跳过 - 提交 ${{ env.CURRENT_HASH }} 之前已经构建过"
+        echo "如需强制重新构建，请删除缓存或等待新的提交"
