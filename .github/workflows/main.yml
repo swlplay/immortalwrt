@@ -1,20 +1,10 @@
 name: Monitor and Build ImmortalWrt (x86_64 Master)
 
 on:
-  # 定时触发：每周二凌晨1点检查更新（北京时间上午9点，UTC+8）
   schedule:
-    - cron: '0 1 * * 2'
-  
-  # 代码推送触发：推送到 master 分支时触发
-  push:
-    branches: [ master ]
-  
-  # Pull Request 触发：针对 master 分支的 PR 时触发
-  pull_request:
-    branches: [ master ]
-  
-  # 手动触发：允许在网页上手动触发
-  workflow_dispatch:
+    # 每周一凌晨2点检查更新（北京时间上午10点，UTC+8）
+    - cron: '0 18 * * 1'
+  workflow_dispatch: # 允许手动触发
 
 env:
   TARGET: x86
@@ -35,7 +25,7 @@ jobs:
       shell: bash
       run: |
         apt-get update
-        apt-get install -y bash
+        apt-get install -y bash  # 确保安装bash
         apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
           bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
           g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
@@ -81,13 +71,16 @@ jobs:
         ./scripts/feeds install -a
         
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
+        # 使用逐行写入的方式创建配置文件，避免YAML解析问题
         echo "CONFIG_TARGET_$TARGET=y" > .config
         echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}=y" >> .config
         echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}_GENERIC=y" >> .config
         
+        # 应用默认配置
         make defconfig
         
         echo "开始编译..."
+        # 先尝试多线程编译，失败后使用单线程详细输出
         make -j$(nproc) || {
           echo "多线程编译失败，尝试单线程编译..."
           make -j1 V=s
@@ -96,14 +89,15 @@ jobs:
         echo "编译完成！"
 
     - name: Save build cache
-      shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
+        # 创建缓存目录
         mkdir -p .cache
         echo "Build completed for commit: ${{ env.CURRENT_HASH }}" > .cache/build-info.txt
         echo "构建完成时间: $(date)" >> .cache/build-info.txt
 
     - name: Upload build artifacts
+      shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
       with:
