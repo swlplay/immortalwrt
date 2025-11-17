@@ -19,14 +19,14 @@ on:
 env:
   TARGET: x86
   SUBTARGET: 64
-  WORKING_DIRECTORY: immortalwrt-source
+  WORKING_DIRECTORY: immortalwrt-x86
 
 jobs:
   check-and-build:
     runs-on: ubuntu-latest
     container:
-      image: debian:11-slim
-      options: --privileged
+      image: ubuntu:24.04
+      options: --cap-add=SYS_ADMIN
       
     steps:
     - name: Checkout repository
