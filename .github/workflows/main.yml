@@ -26,7 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:11-slim
-
+      options: --privileged
+      
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
