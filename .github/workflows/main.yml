@@ -1,10 +1,20 @@
 name: Monitor and Build ImmortalWrt (x86_64 Master)
 
 on:
+  # 定时触发：每周二凌晨1点检查更新（北京时间上午9点，UTC+8）
   schedule:
-    # 每周一凌晨2点检查更新（北京时间上午10点，UTC+8）
-    - cron: '0 2 * * 1'
-  workflow_dispatch: # 允许手动触发
+    - cron: '0 1 * * 2'
+  
+  # 代码推送触发：推送到 master 分支时触发
+  push:
+    branches: [ master ]
+  
+  # Pull Request 触发：针对 master 分支的 PR 时触发
+  pull_request:
+    branches: [ master ]
+  
+  # 手动触发：允许在网页上手动触发
+  workflow_dispatch:
 
 env:
   TARGET: x86
