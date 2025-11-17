@@ -1,10 +1,20 @@
 name: Monitor and Build ImmortalWrt (x86_64 Master)
 
 on:
+  # 定时触发：每周一凌晨2点检查更新（北京时间上午10点，UTC+8）
   schedule:
-    # 每周一凌晨2点检查更新（北京时间上午10点，UTC+8）
-    - cron: '0 18 * * 1'
-  workflow_dispatch: # 允许手动触发
+    - cron: '0 18 * * 2'
+  
+  # 代码推送触发：推送到 master 分支时触发
+  push:
+    branches: [ master ]
+  
+  # Pull Request 触发：针对 master 分支的 PR 时触发
+  pull_request:
+    branches: [ master ]
+  
+  # 手动触发：允许在网页上手动触发
+  workflow_dispatch:
 
 env:
   TARGET: x86
@@ -25,6 +35,7 @@ jobs:
       shell: bash
       run: |
         apt-get update
+        apt-get full-upgrade -y
         apt-get install -y bash  # 确保安装bash
         apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
           bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
@@ -89,6 +100,7 @@ jobs:
         echo "编译完成！"
 
     - name: Save build cache
+      shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
         # 创建缓存目录
@@ -97,7 +109,6 @@ jobs:
         echo "构建完成时间: $(date)" >> .cache/build-info.txt
 
     - name: Upload build artifacts
-      shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
       with:
