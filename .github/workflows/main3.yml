@@ -135,6 +135,8 @@ jobs:
       run: |
         # 切换回仓库根目录
         cd "$GITHUB_WORKSPACE"
+        echo "工作目录内容:"
+        ls -la
         
         # 配置 Git
         git config user.email "action@github.com"
