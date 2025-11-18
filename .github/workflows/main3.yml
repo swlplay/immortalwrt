@@ -31,6 +31,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        # 确保拉取所有分支和历史，以便后续推送
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Install dependencies
       shell: bash
