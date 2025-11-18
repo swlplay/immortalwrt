@@ -151,6 +151,9 @@ jobs:
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
+        # 切换回仓库根目录
+        cd $GITHUB_WORKSPACE
+        
         # 配置 Git
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
