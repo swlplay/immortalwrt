@@ -103,15 +103,6 @@ jobs:
         # 应用默认配置
         make defconfig
         
-        echo "开始编译..."
-        # 先尝试多线程编译，失败后使用单线程详细输出
-        timeout 14400 make -j$(nproc) || {
-          echo "多线程编译失败或超时，尝试单线程编译..."
-          make -j1 V=s
-        }
-        
-        echo "编译完成！"
-
     - name: Generate and save config files
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
@@ -160,7 +151,18 @@ jobs:
           # 使用 token 推送
           git push "https://$GH_TOKEN@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }}
           echo "配置文件已提交到仓库的 $CONFIG_HISTORY_DIR 目录"
-        fi
+        fi  
+        
+        echo "开始编译..."
+        # 先尝试多线程编译，失败后使用单线程详细输出
+        timeout 14400 make -j$(nproc) || {
+          echo "多线程编译失败或超时，尝试单线程编译..."
+          make -j1 V=s
+        }
+        
+        echo "编译完成！"
+
+
 
     - name: Save build cache
       shell: bash
