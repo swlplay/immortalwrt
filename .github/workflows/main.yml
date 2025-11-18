@@ -164,13 +164,17 @@ jobs:
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
+        # 切换回仓库根目录
         cd $GITHUB_WORKSPACE
         
+        # 配置 Git
         git config user.email "action@github.com"
         git config user.name "GitHub Action"
         
+        # 添加配置目录（使用新的目录名）
         git add $CONFIG_HISTORY_DIR/
         
+        # 只在有变化时提交
         if git diff --staged --quiet; then
           echo "配置文件无变化，跳过提交"
         else
