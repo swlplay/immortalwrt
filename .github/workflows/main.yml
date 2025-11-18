@@ -1,3 +1,4 @@
+
 name: Monitor and Build ImmortalWrt (x86_64 Master)
 
 on:
@@ -20,6 +21,7 @@ env:
   TARGET: x86
   SUBTARGET: 64
   WORKING_DIRECTORY: immortalwrt-x86
+  CONFIG_HISTORY_DIR: config-x86-64-history  # 新增配置历史目录变量
 
 jobs:
   check-and-build:
@@ -94,7 +96,7 @@ jobs:
         
         echo "开始编译..."
         # 先尝试多线程编译，失败后使用单线程详细输出
-        make -j$(nproc) || {
+        make -j$(nproc) V=sc || {
           echo "多线程编译失败，尝试单线程编译..."
           make -j1 V=s
         }
@@ -107,13 +109,13 @@ jobs:
       run: |
         cd "$WORKING_DIRECTORY"
         
-        # 确保配置目录存在
-        mkdir -p ../config-history
+        # 确保配置目录存在（使用新的目录名）
+        mkdir -p ../$CONFIG_HISTORY_DIR
         
         TIMESTAMP=$(date +%Y%m%d-%H%M%S)
         
-        # 保存带时间戳的配置文件
-        cp .config ../config-history/config-$TIMESTAMP.txt
+        # 保存带时间戳的配置文件到新目录
+        cp .config ../$CONFIG_HISTORY_DIR/config-$TIMESTAMP.txt
         
         # 保存最新配置文件到构建产物目录
         mkdir -p bin/targets/$TARGET/$SUBTARGET/
@@ -123,14 +125,14 @@ jobs:
         mkdir -p ../config-artifacts
         cp .config ../config-artifacts/immortalwrt-x86-64-config.txt
         
-        echo "配置文件已保存：config-history/config-$TIMESTAMP.txt"
+        echo "配置文件已保存：$CONFIG_HISTORY_DIR/config-$TIMESTAMP.txt"
 
     - name: Clean up old configs (keep last 20)
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
-        # 切换到配置目录
-        cd config-history
+        # 切换到配置目录（使用新的目录名）
+        cd $CONFIG_HISTORY_DIR
         
         # 计算当前配置文件数量
         CONFIG_COUNT=$(ls -1 config-*.txt 2>/dev/null | wc -l)
@@ -153,8 +155,8 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        # 添加配置目录
-        git add config-history/
+        # 添加配置目录（使用新的目录名）
+        git add $CONFIG_HISTORY_DIR/
         
         # 只在有变化时提交
         if git diff --staged --quiet; then
@@ -162,7 +164,7 @@ jobs:
         else
           git commit -m "Update ImmortalWrt configuration history [skip ci]"
           git push
-          echo "配置文件已提交到仓库的 config-history 目录"
+          echo "配置文件已提交到仓库的 $CONFIG_HISTORY_DIR 目录"
         fi
 
     - name: Save build cache
