@@ -1,7 +1,7 @@
 name: Monitor and Build ImmortalWrt (x86_64 Master)
 
 on:
-  # 定时触发：每周一凌晨2点检查更新（北京时间上午10点，UTC+8）
+  # 定时触发：每周二18点检查更新（UTC时间）
   schedule:
     - cron: '0 18 * * 2'
   
@@ -42,7 +42,7 @@ jobs:
           bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
           g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
           libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncurses-dev libpython3-dev \
-          libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
+          libreadline-dev libssl-dev libtool libyaml-dev libz-dev llld llvm lrzsz mkisofs msmtp nano \
           ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
           python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
           upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
@@ -94,12 +94,76 @@ jobs:
         
         echo "开始编译..."
         # 先尝试多线程编译，失败后使用单线程详细输出
-        make -j$(nproc) || {
+        make -j$(nproc) V=sc || {
           echo "多线程编译失败，尝试单线程编译..."
           make -j1 V=s
         }
         
         echo "编译完成！"
+
+    - name: Generate and save config files
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |
+        cd "$WORKING_DIRECTORY"
+        
+        # 确保配置目录存在
+        mkdir -p ../config-history
+        
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        
+        # 保存带时间戳的配置文件
+        cp .config ../config-history/config-$TIMESTAMP.txt
+        
+        # 保存最新配置文件到构建产物目录
+        mkdir -p bin/targets/$TARGET/$SUBTARGET/
+        cp .config bin/targets/$TARGET/$SUBTARGET/config-latest.txt
+        
+        # 为单独配置文件构建物创建目录
+        mkdir -p ../config-artifacts
+        cp .config ../config-artifacts/immortalwrt-x86-64-config.txt
+        
+        echo "配置文件已保存：config-history/config-$TIMESTAMP.txt"
+
+    - name: Clean up old configs (keep last 20)
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |
+        # 切换到配置目录
+        cd config-history
+        
+        # 计算当前配置文件数量
+        CONFIG_COUNT=$(ls -1 config-*.txt 2>/dev/null | wc -l)
+        echo "当前配置文件数量: $CONFIG_COUNT"
+        
+        # 保留最新的20个配置文件，删除更旧的
+        if [ $CONFIG_COUNT -gt 20 ]; then
+          ls -1t config-*.txt | tail -n +21 | xargs -r rm -f
+          echo "已清理旧配置文件，保留最新的20个"
+          echo "删除了 $((CONFIG_COUNT - 20)) 个旧配置文件"
+        else
+          echo "配置文件数量不足20个（当前 $CONFIG_COUNT 个），跳过清理"
+        fi
+
+    - name: Commit config files to repository
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |
+        # 配置 Git
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # 添加配置目录
+        git add config-history/
+        
+        # 只在有变化时提交
+        if git diff --staged --quiet; then
+          echo "配置文件无变化，跳过提交"
+        else
+          git commit -m "Update ImmortalWrt configuration history [skip ci]"
+          git push
+          echo "配置文件已提交到仓库的 config-history 目录"
+        fi
 
     - name: Save build cache
       shell: bash
@@ -110,13 +174,22 @@ jobs:
         echo "Build completed for commit: ${{ env.CURRENT_HASH }}" > .cache/build-info.txt
         echo "构建完成时间: $(date)" >> .cache/build-info.txt
 
-    - name: Upload build artifacts
+    - name: Upload build artifacts (固件和配置)
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
       with:
         name: immortalwrt-x86-64-images
         path: ${{ env.WORKING_DIRECTORY }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*
         retention-days: 7
+        if-no-files-found: error
+
+    - name: Upload config artifacts (单独配置文件)
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: immortalwrt-x86-64-config
+        path: config-artifacts/
+        retention-days: 30
         if-no-files-found: error
 
     - name: Build skipped due to cache
