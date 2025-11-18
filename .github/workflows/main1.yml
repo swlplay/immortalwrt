@@ -73,7 +73,7 @@ jobs:
 
     - name: Build ImmortalWrt if source updated
       shell: bash
-      if: steps.cache-hash.outputs.cache-hit != 'true'
+      if: steps.cache-hash.outputs.cache-hit != 'false'
       run: |
         set -ex
         cd "$WORKING_DIRECTORY"
