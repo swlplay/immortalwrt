@@ -96,7 +96,7 @@ jobs:
         
         echo "开始编译..."
         # 先尝试多线程编译，失败后使用单线程详细输出
-        make -j$(nproc) V=sc || {
+        make -j$(nproc) || {
           echo "多线程编译失败，尝试单线程编译..."
           make -j1 V=s
         }
