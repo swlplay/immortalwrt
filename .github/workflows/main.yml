@@ -89,10 +89,8 @@ jobs:
         ./scripts/feeds install -a
         
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
-        # 使用逐行写入的方式创建配置文件，避免YAML解析问题
-        echo "CONFIG_TARGET_$TARGET=y" > .config
-        echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}=y" >> .config
-        echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}_GENERIC=y" >> .config
+        # 复制预定义的配置
+        cp $GITHUB_WORKSPACE/$CONFIG_HISTORY_DIR/.config .config
         
         # 应用默认配置
         make defconfig
