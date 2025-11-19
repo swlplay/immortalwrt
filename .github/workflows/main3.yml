@@ -57,11 +57,6 @@ jobs:
         echo "工作目录内容:"
         ls -la
 
-    - name: Clone ImmortalWrt master branch
-      shell: bash
-      run: |
-        git clone -b master --depth=1 --single-branch --filter=blob:none https://github.com/immortalwrt/immortalwrt.git $WORKING_DIRECTORY
-
     - name: Check for updates in master branch
       id: check-update
       shell: bash
@@ -155,54 +150,3 @@ jobs:
           echo "配置文件已提交到仓库的 $CONFIG_HISTORY_DIR 目录"
         fi  
         
-        echo "开始编译..."
-        # 先尝试多线程编译，失败后使用单线程详细输出
-        timeout 14400 make -j$(nproc) || {
-          echo "多线程编译失败或超时，尝试单线程编译..."
-          make -j1 V=s
-        }
-        
-        echo "编译完成！"
-
-
-
-    - name: Save build cache
-      shell: bash
-      if: steps.cache-hash.outputs.cache-hit != 'true'
-      run: |
-        # 创建缓存目录
-        mkdir -p .cache
-        echo "Build completed for commit: ${{ env.CURRENT_HASH }}" > .cache/build-info.txt
-        echo "构建完成时间: $(date)" >> .cache/build-info.txt
-
-    - name: Upload build artifacts (固件和配置)
-      if: steps.cache-hash.outputs.cache-hit != 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: immortalwrt-x86-64-images
-        path: ${{ env.WORKING_DIRECTORY }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*
-        retention-days: 7
-        if-no-files-found: error
-
-    - name: Upload config artifacts (单独配置文件)
-      if: steps.cache-hash.outputs.cache-hit != 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: immortalwrt-x86-64-config
-        path: config-artifacts/
-        retention-days: 30
-        if-no-files-found: error
-
-    - name: Clean up on failure
-      if: failure()
-      run: |
-        echo "构建失败，清理中间文件..."
-        cd "$WORKING_DIRECTORY" && make dirclean || true
-        echo "清理完成"
-
-    - name: Build skipped due to cache
-      shell: bash
-      if: steps.cache-hash.outputs.cache-hit == 'true'
-      run: |
-        echo "构建已跳过 - 提交 ${{ env.CURRENT_HASH }} 之前已经构建过"
-        echo "如需强制重新构建，请删除缓存或等待新的提交"
