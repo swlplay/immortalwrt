@@ -130,6 +130,23 @@ jobs:
         
         echo "配置文件已保存：$CONFIG_HISTORY_DIR/config-$TIMESTAMP.txt"
         
+    - name: Clean up old configs (keep last 20)
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |
+        cd $CONFIG_HISTORY_DIR
+        
+        CONFIG_COUNT=$(ls -1 config-*.txt 2>/dev/null | wc -l)
+        echo "当前配置文件数量: $CONFIG_COUNT"
+        
+        if [ $CONFIG_COUNT -gt 20 ]; then
+          ls -1t config-*.txt | tail -n +21 | xargs -r rm -f
+          echo "已清理旧配置文件，保留最新的20个"
+          echo "删除了 $((CONFIG_COUNT - 20)) 个旧配置文件"
+        else
+          echo "配置文件数量不足20个（当前 $CONFIG_COUNT 个），跳过清理"
+        fi        
+    
     - name: Commit config files to repository
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
