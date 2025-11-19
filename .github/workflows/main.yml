@@ -135,6 +135,7 @@ jobs:
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
         cd $CONFIG_HISTORY_DIR
+        ls -la
         
         CONFIG_COUNT=$(ls -1 config-*.txt 2>/dev/null | wc -l)
         echo "当前配置文件数量: $CONFIG_COUNT"
