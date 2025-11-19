@@ -29,6 +29,11 @@ jobs:
       image: debian:11
       
     steps:
+    - name: Install Git and dependencies
+      run: |
+        apt-get update
+        apt-get install -y git curl ca-certificates
+        
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
