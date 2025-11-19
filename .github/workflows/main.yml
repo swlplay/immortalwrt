@@ -28,27 +28,30 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:11-slim
-      options: --privileged
       
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
     - name: Install dependencies
       shell: bash
       run: |
         apt-get update
         apt-get full-upgrade -y
-        apt-get install -y bash  # 确保安装bash
+        apt-get install -y bash git curl ca-certificates  # 确保安装bash
         apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
-          bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
-          g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+          bzip2 ccache clang cmake cpio device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+          g++-multilib gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
           libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncurses-dev libpython3-dev \
           libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
           ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
           python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
           upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
 
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # 确保拉取所有分支和历史，以便后续推送
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
     - name: Clone ImmortalWrt master branch
       shell: bash
       run: |
@@ -96,8 +99,8 @@ jobs:
         
         echo "开始编译..."
         # 先尝试多线程编译，失败后使用单线程详细输出
-        make -j$(nproc) || {
-          echo "多线程编译失败，尝试单线程编译..."
+        timeout 14400 make -j$(nproc) || {
+          echo "多线程编译失败或超时，尝试单线程编译..."
           make -j1 V=s
         }
         
@@ -133,6 +136,12 @@ jobs:
       run: |
         # 切换回仓库根目录
         cd "$GITHUB_WORKSPACE"
+        echo "工作目录内容:"
+        ls -la
+       
+        # 添加当前工作目录为安全目录
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        git config --global --add safe.directory "$GITHUB_WORKSPACE/.git"
         
         # 配置 Git
         git config user.email "action@github.com"
@@ -146,10 +155,11 @@ jobs:
           echo "配置文件无变化，跳过提交"
         else
           git commit -m "Update ImmortalWrt configuration history [skip ci]"
-          git push
+          # 使用 token 推送
+          git push "https://$GH_TOKEN@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }}
           echo "配置文件已提交到仓库的 $CONFIG_HISTORY_DIR 目录"
-        fi
-
+        fi  
+        
     - name: Save build cache
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
