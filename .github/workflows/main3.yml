@@ -40,9 +40,12 @@ jobs:
         # 确保拉取所有分支和历史，以便后续推送
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-        
+  
     - name: Debug Git environment
       run: |
+        # 添加当前工作目录为安全目录
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        git config --global --add safe.directory "$GITHUB_WORKSPACE/.git"     
         echo "=== 环境信息 ==="
         echo "工作目录: $(pwd)"
         echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
