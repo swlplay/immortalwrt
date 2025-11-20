@@ -44,7 +44,11 @@ jobs:
           ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
           python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
           upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
-
+        fallocate -l 8G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -95,14 +99,55 @@ jobs:
         # 应用默认配置
         make defconfig
         
-        echo "开始编译..."
-        # 先尝试多线程编译，失败后使用单线程详细输出
-        timeout 14400 make -j$(nproc) || {
-          echo "多线程编译失败或超时，尝试单线程编译..."
-          make -j1 V=s
-        }
-        
-        echo "编译完成！"
+    - name: Build Toolchain
+      run: |
+        make toolchain/compile -j2 V=s
+        make toolchain/install -j2 V=s
+        # 清理工具链中间文件
+        rm -rf build_dir/toolchain-*/*
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+    
+    - name: Build Kernel
+      run: |
+        make target/linux/compile -j2 V=s
+        make target/linux/install -j2 V=s
+        # 清理内核中间文件
+        find build_dir/target-*/linux-* -name "*.o" -delete
+        find build_dir/target-*/linux-* -name ".*.cmd" -delete
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+    
+    - name: Build Packages in Batches
+      run: |
+        # 分4批编译包，每批完成后清理
+        batches=("A-F" "G-M" "N-T" "U-Z")
+        for batch in "${batches[@]}"; do
+          echo "编译批次: $batch"
+          for pkg in build_dir/target-*/packages/[$batch]*; do
+            if [ -d "$pkg" ]; then
+              pkg_name=$(basename "$pkg")
+              echo "编译: $pkg_name"
+              make package/$pkg_name/compile -j1 V=s || true
+            fi
+          done
+          # 批次完成后清理
+          rm -rf build_dir/target-*/packages/[$batch]*/build*
+          rm -rf build_dir/target-*/packages/[$batch]*/ipkg-*
+          rm -rf tmp/
+          du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+        done
+    
+    - name: Final Assembly
+      run: |
+        make package/install -j1 V=s
+        make target/install -j1 V=s
+        # 最终清理
+        rm -rf build_dir/* staging_dir/* tmp/*
+    
+    - name: Check Space Usage
+      if: always()
+      run: |
+        echo "=== 空间使用记录 ==="
+        cat space_usage.log
 
     - name: Generate and save config files
       shell: bash
