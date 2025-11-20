@@ -143,12 +143,6 @@ jobs:
         # 最终清理
         rm -rf build_dir/* staging_dir/* tmp/*
     
-    - name: Check Space Usage
-      if: always()
-      run: |
-        echo "=== 空间使用记录 ==="
-        cat space_usage.log
-
     - name: Generate and save config files
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
