@@ -83,6 +83,8 @@ jobs:
         set -ex
         cd "$WORKING_DIRECTORY"
         export FORCE_UNSAFE_CONFIGURE=1
+        export TERM=linux
+        echo "TERM=linux" >> $GITHUB_ENV
         
         echo "开始更新feeds..."
         ./scripts/feeds update -a
