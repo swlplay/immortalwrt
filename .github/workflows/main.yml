@@ -101,20 +101,13 @@ jobs:
         
         echo "开始编译..."
         # 先尝试多线程编译，失败后使用单线程详细输出
-        timeout 14400 make -j3 || {
+        timeout 14400 make -j1 || {
           echo "多线程编译失败或超时，尝试单线程编译..."
           make -j1 V=s
         }
         
         echo "编译完成！"
-    
-    - name: Final Assembly
-      run: |
-        make package/install -j1 V=s
-        make target/install -j1 V=s
-        # 最终清理
-        rm -rf build_dir/* staging_dir/* tmp/*
-    
+ 
     - name: Generate and save config files
       shell: bash
       if: steps.cache-hash.outputs.cache-hit != 'true'
