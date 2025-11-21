@@ -93,12 +93,10 @@ jobs:
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
         # 复制预定义的配置
         cp $GITHUB_WORKSPACE/$CONFIG_HISTORY_DIR/.config .config
-        export TERM=xterm
-        export TERMINFO=/usr/share/terminfo
+
         # 应用默认配置
         make defconfig
-        make oldconfig
-        
+       
         echo "开始编译..."
         # 先尝试多线程编译，失败后使用单线程详细输出
         timeout 14400 make -j1 || {
