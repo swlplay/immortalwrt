@@ -280,7 +280,6 @@ define Device/linkease_easepi-r1
   $(Device/rk3568)
   DEVICE_VENDOR := LinkEase
   DEVICE_MODEL := EasePi R1
-  UBOOT_DEVICE_NAME := generic-rk3568
   DEVICE_PACKAGES := blkdiscard block-mount kmod-button-hotplug kmod-nvme kmod-r8125
 endef
 TARGET_DEVICES += linkease_easepi-r1
@@ -563,6 +562,14 @@ define Device/sinovoip_bpi-r2-pro
   DEVICE_PACKAGES := kmod-ata-ahci-dwc
 endef
 TARGET_DEVICES += sinovoip_bpi-r2-pro
+
+define Device/widora_mangopi-m28k
+  $(Device/rk3528)
+  DEVICE_VENDOR := Widora
+  DEVICE_MODEL := MangoPi M28K
+  DEVICE_PACKAGES := kmod-aic8800-sdio wpad-openssl kmod-r8169
+endef
+TARGET_DEVICES += widora_mangopi-m28k
 
 define Device/xunlong_orangepi-5
   $(Device/rk3588s)
