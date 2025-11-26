@@ -55,7 +55,7 @@ jobs:
     - name: Clone ImmortalWrt master branch
       shell: bash
       run: |
-        git clone -b master --single-branch https://github.com/immortalwrt/immortalwrt.git $WORKING_DIRECTORY
+        git clone -b master --single-branch --filter=blob:none https://github.com/immortalwrt/immortalwrt $WORKING_DIRECTORY
 
     - name: Check for updates in master branch
       id: check-update
