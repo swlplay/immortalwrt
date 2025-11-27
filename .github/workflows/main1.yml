@@ -96,14 +96,135 @@ jobs:
         # 应用默认配置
         make defconfig
         
-        echo "开始编译..."
-        # 先尝试多线程编译，失败后使用单线程详细输出
-        timeout 14400 make -j$(nproc) || {
-          echo "多线程编译失败或超时，尝试单线程编译..."
-          make -j1 V=s
-        }
+        echo "配置编译目标为 $TARGET/$SUBTARGET..."
+        # 复制预定义的配置
+        cd $GITHUB_WORKSPACE/config-x86-64-history/
+        ls -la
+        cp .config $GITHUB_WORKSPACE/immortalwrt-x86/.config
+        cd $GITHUB_WORKSPACE/immortalwrt-x86/
+        ls -la
         
-        echo "编译完成！"
+    - name: Build Tools
+      run: |
+        echo "=== 编译工具 ==="
+        make tools/compile -j2 V=s
+        make tools/install -j2 V=s
+        
+        # 清理工具中间文件
+        echo "清理工具中间文件..."
+        rm -rf build_dir/host/*
+        find build_dir -name "*.o" -delete 2>/dev/null || true
+        rm -rf tmp/
+        
+        echo "工具编译后:" >> space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+    
+    - name: Build Toolchain
+      run: |
+        echo "=== 编译工具链 ==="
+        make toolchain/compile -j2 V=s
+        make toolchain/install -j2 V=s
+        
+        # 清理工具链中间文件
+        echo "清理工具链中间文件..."
+        rm -rf build_dir/toolchain-*/*
+        find build_dir -name "*.o" -delete 2>/dev/null || true
+        rm -rf tmp/
+        
+        echo "工具链编译后:" >> space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+    
+    - name: Build Kernel
+      run: |
+        echo "=== 编译内核 ==="
+        make target/linux/compile -j2 V=s
+        make target/linux/install -j2 V=s
+        
+        # 清理内核中间文件
+        echo "清理内核中间文件..."
+        find build_dir/target-*/linux-* -name "*.o" -delete
+        find build_dir/target-*/linux-* -name ".*.cmd" -delete
+        find build_dir/target-*/linux-* -name "*.ko" -delete 2>/dev/null || true
+        rm -rf tmp/
+        
+        echo "内核编译后:" >> space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+    
+    - name: Build Packages in Batches
+      run: |
+        echo "=== 分批次编译软件包 ==="
+        
+        # 获取所有选中的包
+        SELECTED_PACKAGES=$(grep '^CONFIG_PACKAGE_' .config | grep '=y$' | cut -d'=' -f1 | sed 's/CONFIG_PACKAGE_//' | sort)
+        
+        if [ -z "$SELECTED_PACKAGES" ]; then
+          echo "使用备用方法获取包列表"
+          SELECTED_PACKAGES=$(find package -name Makefile -exec dirname {} \; | xargs -n1 basename | sort | uniq)
+        fi
+        
+        echo "需要编译的包数量: $(echo "$SELECTED_PACKAGES" | wc -l)"
+        
+        # 分4批编译
+        total_packages=$(echo "$SELECTED_PACKAGES" | wc -l)
+        batch_size=$((total_packages / 4))
+        
+        # 第一批
+        echo "=== 批次 1/4 (A-F) ==="
+        echo "$SELECTED_PACKAGES" | head -n $batch_size | while read pkg; do
+          if [ -n "$pkg" ]; then
+            echo "编译: $pkg"
+            make package/$pkg/compile -j1 V=s || echo "包 $pkg 编译失败，继续下一个"
+          fi
+        done
+        # 清理第一批
+        rm -rf build_dir/target-*/*/build* tmp/
+        echo "批次1完成后:" >> space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+        
+        # 第二批
+        echo "=== 批次 2/4 (G-M) ==="
+        echo "$SELECTED_PACKAGES" | tail -n +$((batch_size + 1)) | head -n $batch_size | while read pkg; do
+          if [ -n "$pkg" ]; then
+            echo "编译: $pkg"
+            make package/$pkg/compile -j1 V=s || echo "包 $pkg 编译失败，继续下一个"
+          fi
+        done
+        # 清理第二批
+        rm -rf build_dir/target-*/*/build* tmp/
+        echo "批次2完成后:" >> space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+        
+        # 第三批
+        echo "=== 批次 3/4 (N-T) ==="
+        echo "$SELECTED_PACKAGES" | tail -n +$((batch_size * 2 + 1)) | head -n $batch_size | while read pkg; do
+          if [ -n "$pkg" ]; then
+            echo "编译: $pkg"
+            make package/$pkg/compile -j1 V=s || echo "包 $pkg 编译失败，继续下一个"
+          fi
+        done
+        # 清理第三批
+        rm -rf build_dir/target-*/*/build* tmp/
+        echo "批次3完成后:" >> space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+        
+        # 第四批
+        echo "=== 批次 4/4 (U-Z) ==="
+        echo "$SELECTED_PACKAGES" | tail -n +$((batch_size * 3 + 1)) | while read pkg; do
+          if [ -n "$pkg" ]; then
+            echo "编译: $pkg"
+            make package/$pkg/compile -j1 V=s || echo "包 $pkg 编译失败，继续下一个"
+          fi
+        done
+        # 清理第四批
+        rm -rf build_dir/target-*/*/build* tmp/
+        echo "批次4完成后:" >> space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
+    
+    - name: Final Assembly
+      run: |
+        echo "=== 最终组装 ==="
+        make package/install -j1 V=s
+        make target/install -j1 V=s
 
     - name: Generate and save config files
       shell: bash
