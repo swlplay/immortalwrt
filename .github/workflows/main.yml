@@ -78,7 +78,7 @@ jobs:
 
     - name: Build ImmortalWrt if source updated
       shell: bash
-      if: steps.cache-hash.outputs.cache-hit != 'true'
+ 
       run: |
         set -ex
         cd $GITHUB_WORKSPACE/immortalwrt-x86/
