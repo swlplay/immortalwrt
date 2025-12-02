@@ -94,8 +94,11 @@ jobs:
         ls -la
         cp .config $GITHUB_WORKSPACE/immortalwrt-x86/.config
         cd $GITHUB_WORKSPACE/immortalwrt-x86/
+        
         ls -la
-
+        
+        make defconfig
+        
         echo "开始更新feeds..."
         ./scripts/feeds update -a
         ./scripts/feeds install -a
