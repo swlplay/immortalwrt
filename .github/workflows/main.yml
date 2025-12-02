@@ -91,8 +91,8 @@ jobs:
         echo "开始更新feeds..."
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-        
-        
+        cd $GITHUB_WORKSPACE/immortalwrt-x86/feeds/packages/libs/
+        ls -la
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
         # 复制预定义的配置
         cd $GITHUB_WORKSPACE/config-x86-64-history/
