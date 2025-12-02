@@ -96,26 +96,14 @@ jobs:
         # 应用默认配置
         make defconfig
         
-        echo "配置编译目标为 $TARGET/$SUBTARGET..."
-        # 复制预定义的配置
-        cd $GITHUB_WORKSPACE/config-x86-64-history/
-        ls -la
-        cp .config $GITHUB_WORKSPACE/immortalwrt-x86/.config
-        cd $GITHUB_WORKSPACE/immortalwrt-x86/
-        ls -la
-        
-
-    - name: Build Tools
-      run: |
         echo "开始编译..."
         # 先尝试多线程编译，失败后使用单线程详细输出
-        timeout 14400 make -j1 || {
+        timeout 14400 make -j$(nproc) || {
           echo "多线程编译失败或超时，尝试单线程编译..."
           make -j1 V=s
         }
         
         echo "编译完成！"
-
 
     - name: Generate and save config files
       shell: bash
