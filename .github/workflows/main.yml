@@ -87,12 +87,7 @@ jobs:
         # 初始化空间使用记录
         echo "初始状态:" > space_usage.log
         du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
-
-        echo "开始更新feeds..."
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-        cd $GITHUB_WORKSPACE/immortalwrt-x86/feeds/packages/libs/
-        ls -la
+        
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
         # 复制预定义的配置
         cd $GITHUB_WORKSPACE/config-x86-64-history/
@@ -100,6 +95,13 @@ jobs:
         cp .config $GITHUB_WORKSPACE/immortalwrt-x86/.config
         cd $GITHUB_WORKSPACE/immortalwrt-x86/
         ls -la
+
+        echo "开始更新feeds..."
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        cd $GITHUB_WORKSPACE/immortalwrt-x86/feeds/packages/libs/
+        ls -la
+        
 
         make defconfig
 
