@@ -99,10 +99,9 @@ jobs:
         echo "开始更新feeds..."
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-        cd $GITHUB_WORKSPACE/immortalwrt-x86/feeds/packages/libs/
+        
         ls -la
         
-
         make defconfig
 
     - name: Build Tools
