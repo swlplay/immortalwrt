@@ -104,36 +104,7 @@ jobs:
         cd $GITHUB_WORKSPACE/immortalwrt-x86/
         ls -la
         
-    - name: Build Tools
-      run: |
-        echo "=== 编译工具 ==="
-        make tools/compile -j2 V=s
-        make tools/install -j2 V=s
-        
-        # 清理工具中间文件
-        echo "清理工具中间文件..."
-        rm -rf build_dir/host/*
-        find build_dir -name "*.o" -delete 2>/dev/null || true
-        rm -rf tmp/
-        
-        echo "工具编译后:" >> space_usage.log
-        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
-    
-    - name: Build Toolchain
-      run: |
-        echo "=== 编译工具链 ==="
-        make toolchain/compile -j2 V=s
-        make toolchain/install -j2 V=s
-        
-        # 清理工具链中间文件
-        echo "清理工具链中间文件..."
-        rm -rf build_dir/toolchain-*/*
-        find build_dir -name "*.o" -delete 2>/dev/null || true
-        rm -rf tmp/
-        
-        echo "工具链编译后:" >> space_usage.log
-        du -sh . | grep -oE '[0-9.]+[A-Z]' >> space_usage.log
-    
+
     - name: Build Kernel
       run: |
         echo "=== 编译内核 ==="
