@@ -95,6 +95,11 @@ jobs:
         
         # 应用默认配置
         make defconfig
+    - name: Configure
+      run: |
+        # 禁用图形配置
+        export TERM=dumb
+        export FORCE_UNSAFE_CONFIGURE=1 
         
     - name: Build Tools
       run: |
