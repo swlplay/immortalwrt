@@ -31,3 +31,6 @@
 [submodule "swlplay/package/pingdongyi"]
 	path = swlplay/package/pingdongyi
 	url = https://github.com/pingdongyi/actionbased-openwrt-packages.git
+[submodule "swlplay/package2/chenmozhijin"]
+	path = swlplay/package2/chenmozhijin
+	url = https://github.com/chenmozhijin/turboacc.git
