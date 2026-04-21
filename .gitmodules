@@ -1,0 +1,33 @@
+[submodule "swlplay/package/chenmozhijin"]
+	path = swlplay/package/chenmozhijin
+	url = https://github.com/chenmozhijin/turboacc.git
+[submodule "swlplay/sirpdboy/luci-app-timecontrol"]
+	path = swlplay/sirpdboy/luci-app-timecontrol
+	url = https://github.com/sirpdboy/luci-app-timecontrol.git
+[submodule "swlplay/sirpdboy/luci-app-advancedplus"]
+	path = swlplay/sirpdboy/luci-app-advancedplus
+	url = https://github.com/sirpdboy/luci-app-advancedplus.git
+[submodule "swlplay/sirpdboy/luci-app-ddns-go"]
+	path = swlplay/sirpdboy/luci-app-ddns-go
+	url = https://github.com/sirpdboy/luci-app-ddns-go.git
+[submodule "swlplay/package/sirpdboy/luci-app-timecontrol"]
+	path = swlplay/package/sirpdboy/luci-app-timecontrol
+	url = https://github.com/sirpdboy/luci-app-timecontrol.git
+[submodule "swlplay/package/sirpdboy/luci-app-advancedplus"]
+	path = swlplay/package/sirpdboy/luci-app-advancedplus
+	url = https://github.com/sirpdboy/luci-app-advancedplus.git
+[submodule "swlplay/package/sirpdboy/luci-app-ddns-go"]
+	path = swlplay/package/sirpdboy/luci-app-ddns-go
+	url = https://github.com/sirpdboy/luci-app-ddns-go.git
+[submodule "swlplay/package/sirpdboy/luci-app-netspeedtest"]
+	path = swlplay/package/sirpdboy/luci-app-netspeedtest
+	url = https://github.com/sirpdboy/netspeedtest.git
+[submodule "swlplay/package/thunders"]
+	path = swlplay/package/thunders
+	url = https://github.com/swlplay/openwrt-thunder.git
+[submodule "swlplay/package/xuanranran"]
+	path = swlplay/package/xuanranran
+	url = https://github.com/xuanranran/openwrt-package.git
+[submodule "swlplay/package/pingdongyi"]
+	path = swlplay/package/pingdongyi
+	url = https://github.com/pingdongyi/actionbased-openwrt-packages.git
