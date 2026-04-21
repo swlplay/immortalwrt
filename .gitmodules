@@ -1,9 +1,24 @@
-[submodule "swlplay/sirpdboy/luci-app-timecontrol"]
-	path = swlplay/sirpdboy/luci-app-timecontrol
-	url = https://github.com/sirpdboy/luci-app-timecontrol.git
-[submodule "swlplay/sirpdboy/luci-app-advancedplus"]
-	path = swlplay/sirpdboy/luci-app-advancedplus
-	url = https://github.com/sirpdboy/luci-app-advancedplus.git
-[submodule "swlplay/sirpdboy/luci-app-ddns-go"]
-	path = swlplay/sirpdboy/luci-app-ddns-go
-	url = https://github.com/sirpdboy/luci-app-ddns-go.git
+[submodule "swlplay/package/chenmozhijin"]
+	path = swlplay/package/chenmozhijin
+	url = https://github.com/swlplay/chenmozhijin.git
+[submodule "swlplay/package/sirpdboy/luci-app-timecontrol"]
+	path = swlplay/package/sirpdboy/luci-app-timecontrol
+	url = https://github.com/swlplay/luci-app-timecontrol.git
+[submodule "swlplay/package/sirpdboy/luci-app-advancedplus"]
+	path = swlplay/package/sirpdboy/luci-app-advancedplus
+	url = https://github.com/swlplay/luci-app-advancedplus.git
+[submodule "swlplay/package/sirpdboy/luci-app-ddns-go"]
+	path = swlplay/package/sirpdboy/luci-app-ddns-go
+	url = https://github.com/swlplay/luci-app-ddns-go.git
+[submodule "swlplay/package/sirpdboy/luci-app-netspeedtest"]
+	path = swlplay/package/sirpdboy/luci-app-netspeedtest
+	url = https://github.com/swlplay/netspeedtest.git
+[submodule "swlplay/package/xuanranran"]
+	path = swlplay/package/xuanranran
+	url = https://github.com/swlplay/xuanranran.git
+[submodule "swlplay/package/pingdongyi"]
+	path = swlplay/package/pingdongyi
+	url = https://github.com/swlplay/pingdongyi.git
+[submodule "swlplay/package/kiddin9"]
+	path = swlplay/package/kiddin9
+	url = https://github.com/swlplay/thunder.git
