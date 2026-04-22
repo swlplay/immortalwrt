@@ -21,4 +21,4 @@
 	url = https://github.com/swlplay/pingdongyi.git
 [submodule "swlplay/package/kiddin9"]
 	path = swlplay/package/kiddin9
-	url = https://github.com/swlplay/thunder.git
+	url = https://github.com/swlplay/kiddin9.git
