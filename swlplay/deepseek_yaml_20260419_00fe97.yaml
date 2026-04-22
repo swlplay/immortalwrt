@@ -1,0 +1,16 @@
+- name: 调试工件解压后的目录结构
+  run: |
+    echo "=== 查看 immortalwrt 根目录 ==="
+    ls -la ${{ env.WORKING_DIRECTORY }}/
+    echo "=== 查看 staging_dir 目录 ==="
+    ls -la ${{ env.WORKING_DIRECTORY }}/staging_dir/
+    echo "=== 查看 staging_dir/host/bin 目录 ==="
+    ls -la ${{ env.WORKING_DIRECTORY }}/staging_dir/host/bin/ | head -20
+    echo "=== 检查 gcc 是否在 staging_dir/host/bin 中 ==="
+    ls ${{ env.WORKING_DIRECTORY }}/staging_dir/host/bin/gcc* 2>/dev/null || echo "无 gcc"
+    echo "=== 当前 PATH ==="
+    echo $PATH
+    echo "=== which gcc ==="
+    which gcc || echo "gcc not in PATH"
+    echo "=== gcc --version ==="
+    gcc --version || echo "gcc 不可用"
