@@ -89,4 +89,16 @@ for path in "${!SPARSE_PATTERNS[@]}"; do
     fi
 done
 
+echo "== 将所有子模块的 origin 转换为 SSH 格式（仅当需要时） =="
+git submodule foreach --recursive '
+    current_url=$(git remote get-url origin)
+    new_url=$(echo "$current_url" | sed "s|https://github.com/|git@github.com:|")
+    if [ "$current_url" != "$new_url" ]; then
+        echo "转换子模块 $name: $current_url -> $new_url"
+        git remote set-url origin "$new_url"
+    else
+        echo "子模块 $name 的 origin 已是 SSH 格式，无需转换"
+    fi
+'
+
 echo "== 子模块初始化完成 =="
