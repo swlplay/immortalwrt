@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-cd ~/immortalwrt
+cd ~/immortalwr
 
 echo "== 初始化所有子模块 =="
 git submodule update --init --recursive
