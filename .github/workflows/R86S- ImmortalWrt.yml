@@ -1,5 +1,5 @@
  
-name: Build x86_64 ImmortalWrt
+name: Build R86S x86_64 ImmortalWrt
 
 on:
   # 定时触发：每周二18点检查更新（UTC时间）
@@ -166,8 +166,8 @@ jobs:
         
         # 为单独配置文件构建物创建目录
         mkdir -p $GITHUB_WORKSPACE/config-artifacts  
-        cp .config $GITHUB_WORKSPACE/config-artifacts/immortalwrt-x86-64-config.txt    
-        echo "配置文件已保存至 $GITHUB_WORKSPACE/config-artifacts/"
+        cp .config $GITHUB_WORKSPACE/config-artifacts/R86S.config    
+        echo "配置文件已保存至 $GITHUB_WORKSPACE/config-artifacts/R86S.config"
  
     - name: List firmware files (debug)
       if: steps.cache-hash.outputs.cache-hit != 'true'
@@ -220,7 +220,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
-        tag_name: x86_64-nightly
+        tag_name: R86S-nightly
         files: |
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
       env:
