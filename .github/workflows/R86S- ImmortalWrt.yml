@@ -106,8 +106,15 @@ jobs:
         ls -la
 
         cp -r $GITHUB_WORKSPACE/swlplay/package/* $GITHUB_WORKSPACE/package/feeds/
-        cd $GITHUB_WORKSPACE/package/feeds/
-        ls -la
+
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/chenmozhijin/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/kiddin9/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/pingdongyi/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/xuanranran/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-advancedplus/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-ddns-go/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-netspeedtest/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-timecontrol/
 
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
         # 复制预定义的配置
