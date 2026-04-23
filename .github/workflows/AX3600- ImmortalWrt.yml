@@ -1,0 +1,241 @@
+ 
+name: Build XiaoMi AX3600 ImmortalWrt
+
+on:
+  # 定时触发：每周二18点检查更新（UTC时间）
+  schedule:
+    - cron: '0 18 * * 2'
+  
+  # 代码推送触发：推送到 master 分支时触发
+  push:
+    branches: [ master ]
+  
+  # Pull Request 触发：针对 master 分支的 PR 时触发
+  pull_request:
+    branches: [ master ]
+  
+  # 手动触发：允许在网页上手动触发
+  workflow_dispatch:
+
+env:
+  TARGET: x86
+  SUBTARGET: 64
+
+jobs:
+ check-and-build:
+  runs-on: ubuntu-22.04
+  permissions:
+    contents: write          # ← 保留在这里
+
+  steps:
+    - name: 释放前查看磁盘空间
+      run: df -h
+
+    - name: 手动删除额外工具缓存并清理 apt 缓存
+      run: |
+        echo "删除 /opt/hostedtoolcache ..."
+        sudo rm -rf /opt/hostedtoolcache
+        echo "删除其他大目录 ..."
+        sudo rm -rf /usr/share/swift /usr/local/julia* /usr/lib/jvm /usr/local/.ghcup /usr/local/share/chromium /usr/share/dotnet /usr/local/lib/android
+    
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # 确保拉取所有分支和历史，以便后续推送
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 安装编译依赖
+      run: |
+        sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
+
+        sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
+           
+    - name: 编译依赖按装后磁盘空间
+      run: df -h
+        
+    - name: Check for updates in master branch
+      id: check-update
+      shell: bash
+      run: |
+        git config --global --add safe.directory '*'       
+        LATEST_COMMIT_HASH=$(git rev-parse HEAD)
+        echo "latest_commit=$LATEST_COMMIT_HASH" >> $GITHUB_OUTPUT
+        echo "CURRENT_HASH=$LATEST_COMMIT_HASH" >> $GITHUB_ENV
+        echo "FORCE_UNSAFE_CONFIGURE=1" >> $GITHUB_ENV
+        echo "Latest commit hash: $LATEST_COMMIT_HASH" 
+
+    - name: Restore cached commit hash
+      id: cache-hash
+      uses: actions/cache@v4
+      with:
+        path: .cache
+        key: immortalwrt-${{ env.CURRENT_HASH }}
+        restore-keys: |
+          immortalwrt-
+
+    - name: Build ImmortalWrt if source updated
+      shell: bash
+      run: |
+        set -ex
+        mkdir -p $GITHUB_WORKSPACE/swlplay/config/
+        mkdir -p $GITHUB_WORKSPACE/swlplay/history/
+        
+        #子仓库初始化
+        bash $GITHUB_WORKSPACE/scripts/zckcsh.sh
+         
+        # 初始化空间使用记录
+        echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/AX3600_space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/AX3600_space_usage.log
+        
+        echo "开始更新feeds..."
+        ./scripts/feeds update -a
+
+        ./scripts/feeds install -a
+        
+        ./scripts/feeds uninstall ddns-go smartdns qBittorrent-Enhanced-Edition luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go || true
+
+        cd $GITHUB_WORKSPACE/feeds/packages/libs/libffi/
+        ls -la
+
+        cd $GITHUB_WORKSPACE/swlplay/libffi/
+        ls -la
+
+        cp Makefile $GITHUB_WORKSPACE/feeds/packages/libs/libffi/Makefile
+        cd $GITHUB_WORKSPACE/feeds/packages/libs/libffi/
+        ls -la
+
+        cp -r $GITHUB_WORKSPACE/swlplay/package/* $GITHUB_WORKSPACE/package/feeds/
+
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/chenmozhijin/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/kiddin9/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/pingdongyi/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/xuanranran/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-advancedplus/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-ddns-go/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-netspeedtest/
+        ls -la cd $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-timecontrol/
+
+        echo "配置编译目标为 $TARGET/$SUBTARGET..."
+        # 复制预定义的配置
+        cd $GITHUB_WORKSPACE/swlplay/config/
+        ls -la
+
+        cp AX3600.config $GITHUB_WORKSPACE/.config
+        cd $GITHUB_WORKSPACE/                      
+        ls -la
+        
+        make defconfig
+        ls -la
+        
+    - name: Build Packages in Batches
+      run: |
+        echo "=== immortalwrt编译 ==="
+        cd $GITHUB_WORKSPACE/
+        make -j2 V=s
+
+        echo "immortalwrt编译:" >> $GITHUB_WORKSPACE/swlplay/history/AX3600_space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/AX3600_space_usage.log
+    
+        df -h
+
+    - name: Prepare cache marker
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p .cache
+        echo "Build completed for commit: ${{ env.CURRENT_HASH }}" > .cache/build-info.txt
+        echo "构建完成时间: $(date)" >> .cache/build-info.txt
+
+    - name: Upload build artifacts (固件)
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: immortalwrt-x86-64-images
+        path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+        retention-days: 7
+        if-no-files-found: warn
+
+    - name: Generate and save config files
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |        
+        # 保存带时间戳的配置文件到新目录
+        cp .config $GITHUB_WORKSPACE/swlplay/history/AX3600.config
+        echo "配置文件已保存：$GITHUB_WORKSPACE/swlplay/history/AX3600.config"
+        
+        # 为单独配置文件构建物创建目录
+        mkdir -p $GITHUB_WORKSPACE/config-artifacts  
+        cp .config $GITHUB_WORKSPACE/config-artifacts/AX3600.config
+        echo "配置文件已保存至 $GITHUB_WORKSPACE/config-artifacts/AX3600.config"
+ 
+    - name: List firmware files (debug)
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |
+        ls -la $GITHUB_WORKSPACE/bin/targets/x86/64/
+        
+        ls -la $GITHUB_WORKSPACE/config-artifacts/
+
+        ls -la $GITHUB_WORKSPACE/swlplay/history/   
+    
+    - name: Upload config artifacts (单独配置文件)
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: immortalwrt-x86-64-config
+        path: config-artifacts/
+        retention-days: 30
+        if-no-files-found: error
+    
+    - name: Commit config files to repository
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit != 'true' && github.event_name != 'pull_request'   # ← 排除 PR 触发
+      run: |
+        echo "工作目录内容:"
+        ls -la
+               
+        # 配置 Git
+        git config user.email "swlplay@gmail.com"
+        git config user.name "swlplay"
+        
+        # 添加配置目录（使用新的目录名）
+        git add "$GITHUB_WORKSPACE/swlplay/history/"
+        
+        # 只在有变化时提交
+        if git diff --staged --quiet; then
+          echo "配置文件无变化，跳过提交"
+        else
+          git commit -m "编译成功的.config备份、磁盘空间使用日志文件 [skip ci]"
+
+          # 拉取远程更新避免冲突（自动暂存未提交更改，但此时已无未提交更改）
+          git pull --rebase
+
+          # 使用 token 推送
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:master
+          echo "配置文件已提交到仓库的 swlplay/history 目录"
+        fi
+
+    - name: Upload squashfs-combined-efi firmware to Release
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
+        tag_name: AX3600-nightly
+        files: |
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        
+    - name: Build skipped due to cache
+      shell: bash
+      if: steps.cache-hash.outputs.cache-hit == 'true'
+      run: |
+        echo "构建已跳过 - 提交 ${{ env.CURRENT_HASH }} 之前已经构建过"
+        echo "如需强制重新构建，请删除缓存或等待新的提交"
+
+    - name: Save build cache
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: .cache
+        key: immortalwrt-${{ env.CURRENT_HASH }}
