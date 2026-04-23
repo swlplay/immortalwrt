@@ -20,7 +20,6 @@ on:
 env:
   TARGET: x86
   SUBTARGET: 64
-  SPACE_USAGE: R86S_space_usage
 
 jobs:
  check-and-build:
@@ -64,7 +63,6 @@ jobs:
         echo "latest_commit=$LATEST_COMMIT_HASH" >> $GITHUB_OUTPUT
         echo "CURRENT_HASH=$LATEST_COMMIT_HASH" >> $GITHUB_ENV
         echo "FORCE_UNSAFE_CONFIGURE=1" >> $GITHUB_ENV
-        echo "TIMESTAMP=AX3600-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
         echo "Latest commit hash: $LATEST_COMMIT_HASH" 
 
     - name: Restore cached commit hash
@@ -82,19 +80,20 @@ jobs:
         set -ex
         mkdir -p $GITHUB_WORKSPACE/swlplay/config/
         mkdir -p $GITHUB_WORKSPACE/swlplay/history/
-        cd $GITHUB_WORKSPACE/
-        git pull
+        
+        #子仓库初始化
+        bash $GITHUB_WORKSPACE/scripts/zckcsh.sh
          
         # 初始化空间使用记录
-        echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/$SPACE_USAGE-$TIMESTAMP.log
-        du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/$SPACE_USAGE-$TIMESTAMP.log
+        echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
         
         echo "开始更新feeds..."
         ./scripts/feeds update -a
 
         ./scripts/feeds install -a
         
-        ./scripts/feeds uninstall ddns-go smartdns qBittorrent-Enhanced-Edition luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go
+        ./scripts/feeds uninstall ddns-go smartdns qBittorrent-Enhanced-Edition luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go || true
 
         cd $GITHUB_WORKSPACE/feeds/packages/libs/libffi/
         ls -la
@@ -116,7 +115,7 @@ jobs:
         ls -la
 
         cp R86S.config $GITHUB_WORKSPACE/.config
-        cd $GITHUB_WORKSPACE/$WORKING_DIRECTORY/                       
+        cd $GITHUB_WORKSPACE/                      
         ls -la
         
         make defconfig
@@ -128,8 +127,8 @@ jobs:
         cd $GITHUB_WORKSPACE/
         make -j2 V=s
 
-        echo "immortalwrt编译:" >> $GITHUB_WORKSPACE/swlplay/history/$SPACE_USAGE-$TIMESTAMP.log
-        du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/$SPACE_USAGE-$TIMESTAMP.log
+        echo "immortalwrt编译:" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+        du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
     
         df -h
 
@@ -146,7 +145,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: immortalwrt-x86-64-images
-        path: ${{ env.WORKING_DIRECTORY }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+        path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
         retention-days: 7
         if-no-files-found: warn
 
@@ -155,14 +154,23 @@ jobs:
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |        
         # 保存带时间戳的配置文件到新目录
-        cp .config $GITHUB_WORKSPACE/swlplay/config/config-$TIMESTAMP.txt
-        echo "配置文件已保存：$GITHUB_WORKSPACE/swlplay/config/config-$TIMESTAMP.txt"
+        cp .config $GITHUB_WORKSPACE/swlplay/history/R86S.config
+        echo "配置文件已保存：$GITHUB_WORKSPACE/swlplay/history/R86S.config"
         
         # 为单独配置文件构建物创建目录
-        mkdir -p ../config-artifacts/
-        cp .config ../config-artifacts/immortalwrt-x86-64-config.txt
+        mkdir -p $GITHUB_WORKSPACE/config-artifacts  
+        cp .config $GITHUB_WORKSPACE/config-artifacts/immortalwrt-x86-64-config.txt    
+        echo "配置文件已保存至 $GITHUB_WORKSPACE/config-artifacts/"
+ 
+    - name: List firmware files (debug)
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      run: |
+        ls -la $GITHUB_WORKSPACE/bin/targets/x86/64/
         
+        ls -la $GITHUB_WORKSPACE/config-artifacts/
 
+        ls -la $GITHUB_WORKSPACE/swlplay/history/   
+    
     - name: Upload config artifacts (单独配置文件)
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
@@ -171,35 +179,10 @@ jobs:
         path: config-artifacts/
         retention-days: 30
         if-no-files-found: error
-      
-    - name: 清理旧配置和空间使用记录文件（保留最近20个）
-      shell: bash
-      if: steps.cache-hash.outputs.cache-hit != 'true'
-      run: |
-        cd $GITHUB_WORKSPACE/swlplay/history/
-        ls -la
-          
-        # 清理旧配置文件（保留最近20个）
-        CONFIG_COUNT=$(find . -maxdepth 1 -name 'config-*.txt' | wc -l)
-        if [ $CONFIG_COUNT -gt 20 ]; then
-          ls -1t config-*.txt | tail -n +21 | xargs -r rm -f
-          echo "已清理旧配置文件，保留最近20个"
-        else
-          echo "配置文件数量不足20个（当前 $CONFIG_COUNT 个），跳过清理"
-        fi
-          
-        # 清理旧空间使用记录文件（保留最近20个）
-        SPACE_COUNT=$(find . -maxdepth 1 -name '$SPACE_USAGE-*.log' | wc -l)
-        if [ $SPACE_COUNT -gt 20 ]; then
-          ls -1t $SPACE_USAGE-*.log | tail -n +21 | xargs -r rm -f
-          echo "已清理旧空间使用记录文件，保留最近20个"
-        else
-          echo "空间使用记录文件数量不足20个（当前 $SPACE_COUNT 个），跳过清理"
-        fi
     
     - name: Commit config files to repository
       shell: bash
-      if: steps.cache-hash.outputs.cache-hit != 'true'
+      if: steps.cache-hash.outputs.cache-hit != 'true' && github.event_name != 'pull_request'   # ← 排除 PR 触发
       run: |
         echo "工作目录内容:"
         ls -la
@@ -208,9 +191,6 @@ jobs:
         git config user.email "swlplay@gmail.com"
         git config user.name "swlplay"
         
-        # 先拉取远程更改（避免冲突）
-        git pull --rebase origin main
-        
         # 添加配置目录（使用新的目录名）
         git add "$GITHUB_WORKSPACE/swlplay/history/"
         
@@ -218,22 +198,27 @@ jobs:
         if git diff --staged --quiet; then
           echo "配置文件无变化，跳过提交"
         else
-          git commit -m "Update ImmortalWrt configuration history [skip ci]"
+          git commit -m "编译成功的.config备份、磁盘空间使用日志文件 [skip ci]"
+
+          # 拉取远程更新避免冲突（自动暂存未提交更改，但此时已无未提交更改）
+          git pull --rebase
+
           # 使用 token 推送
-          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:master
           echo "配置文件已提交到仓库的 swlplay/history 目录"
         fi
 
     - name: Upload squashfs-combined-efi firmware to Release
+      if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: softprops/action-gh-release@v2
       with:
         # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
         tag_name: x86_64-nightly
         files: |
-          ${{ env.WORKING_DIRECTORY }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-
+        
     - name: Build skipped due to cache
       shell: bash
       if: steps.cache-hash.outputs.cache-hit == 'true'
