@@ -6,14 +6,6 @@ on:
   schedule:
     - cron: '0 18 * * 2'
   
-  # 代码推送触发：推送到 master 分支时触发
-  push:
-    branches: [ master ]
-  
-  # Pull Request 触发：针对 master 分支的 PR 时触发
-  pull_request:
-    branches: [ master ]
-  
   # 手动触发：允许在网页上手动触发
   workflow_dispatch:
 
