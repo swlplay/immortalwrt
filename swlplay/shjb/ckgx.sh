@@ -71,27 +71,6 @@ else
 fi
 
 MAIN_REPO=$(pwd)
-
-# ==================== 检查并初始化子模块 ====================
-echo ""
-echo "=== 检查子模块初始化状态 ==="
-if is_submodules_initialized; then
-    echo "子模块已初始化，跳过初始化步骤"
-else
-    echo "子模块尚未初始化，开始执行初始化脚本: $INIT_SCRIPT"
-    if [ -f "$INIT_SCRIPT" ]; then
-        cd "$MAIN_REPO"
-        bash "$INIT_SCRIPT"
-        cd - > /dev/null
-    else
-        echo "警告：初始化脚本 $INIT_SCRIPT 不存在，将执行默认的 git submodule update --init --recursive"
-        cd "$MAIN_REPO"
-        git submodule update --init --recursive
-        cd - > /dev/null
-    fi
-    echo "子模块初始化完成"
-fi
-
 # ==================== 1. 同步主仓库自身（从原始上游更新） ====================
 echo ""
 echo "=== 同步主仓库自身（从上游 $MAIN_UPSTREAM_URL）==="
@@ -180,6 +159,41 @@ else
         echo "主仓库没有本地修改需要恢复"
     fi
 fi
+
+# ==================== 函数：检查子模块是否已初始化 ====================
+is_submodules_initialized() {
+    if [ ${#modules[@]} -eq 0 ]; then
+        return 0
+    fi
+    local first_path="${modules[0]%%:*}"
+    if [ -d "$first_path/.git" ] || [ -f "$first_path/.git" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+
+# ==================== 检查并初始化子模块 ====================
+echo ""
+echo "=== 检查子模块初始化状态 ==="
+if is_submodules_initialized; then
+    echo "子模块已初始化，跳过初始化步骤"
+else
+    echo "子模块尚未初始化，开始执行初始化脚本: $INIT_SCRIPT"
+    if [ -f "$INIT_SCRIPT" ]; then
+        cd "$MAIN_REPO"
+        bash "$INIT_SCRIPT"
+        cd - > /dev/null
+    else
+        echo "警告：初始化脚本 $INIT_SCRIPT 不存在，将执行默认的 git submodule update --init --recursive"
+        cd "$MAIN_REPO"
+        git submodule update --init --recursive
+        cd - > /dev/null
+    fi
+    echo "子模块初始化完成"
+fi
+
 
 # ==================== 2. 同步每个子模块 ====================
 echo ""
