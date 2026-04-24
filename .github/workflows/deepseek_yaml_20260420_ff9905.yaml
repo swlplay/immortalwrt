@@ -76,7 +76,6 @@ jobs:
 
       - name: Package essential build artifacts
         run: |
-          # cd source
           tar --wildcards -czf build-artifacts-stage1.tar.gz \
             --exclude='build_dir/target-*/**/*.o' \
             --exclude='build_dir/target-*/**/*.la' \
