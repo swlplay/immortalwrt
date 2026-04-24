@@ -31,28 +31,48 @@ jobs:
           sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
       - name: 编译依赖按装后磁盘空间
         run: df -h
-      
-      - name: Configure for x86_64 target
-        working-directory: source
+        
+      - name: Build ImmortalWrt if source updated
+        shell: bash
         run: |
-          echo "CONFIG_TARGET_x86=y" > .config
-          echo "CONFIG_TARGET_x86_64=y" >> .config
-          echo "CONFIG_TARGET_x86_64_DEVICE_generic=y" >> .config
-          make defconfig
+          set -ex
+       
+          # 初始化空间使用记录
+          echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+        
+          echo "开始更新feeds..."
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a      
+          ./scripts/feeds uninstall ddns-go smartdns qBittorrent-Enhanced-Edition luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go || true
+      
+      - name: .config文件配置
+        run: |
+          echo "配置编译目标为 $TARGET/$SUBTARGET..."
+          # 复制预定义的配置
+          cd $GITHUB_WORKSPACE/swlplay/config/
+          ls -la
 
+          cp R86S.config $GITHUB_WORKSPACE/.config
+          cd $GITHUB_WORKSPACE/                      
+          ls -la
+        
+          make defconfig
+          ls -la
+          
       - name: Download all source tarballs
-        working-directory: source
+        # working-directory: source
         run: make download -j$(nproc) V=s
 
       - name: Build toolchain and kernel only
-        working-directory: source
+        # working-directory: source
         run: |
           make toolchain/compile -j$(nproc) V=s
           make target/linux/compile -j$(nproc) V=s
 
       - name: Package essential build artifacts
         run: |
-          cd source
+          # cd source
           tar -czf ../build-artifacts-stage1.tar.gz \
             --exclude='build_dir/target-*/**/*.o' \
             --exclude='build_dir/target-*/**/*.la' \
@@ -60,7 +80,7 @@ jobs:
             --exclude='*.bin' \
             --exclude='*.elf' \
             .
-
+            
       - name: Upload artifacts for stage 2
         uses: actions/upload-artifact@v4
         with:
