@@ -18,8 +18,8 @@ on:
   workflow_dispatch:
 
 env:
-  TARGET: x86
-  SUBTARGET: 64
+  TARGET: qualcommax
+  SUBTARGET: ipq807x
 
 jobs:
  check-and-build:
@@ -147,12 +147,21 @@ jobs:
         echo "Build completed for commit: ${{ env.CURRENT_HASH }}" > .cache/build-info.txt
         echo "构建完成时间: $(date)" >> .cache/build-info.txt
 
-    - name: Upload build artifacts (固件)
+    - name: Upload build artifacts (ubi固件)
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: immortalwrt-x86-64-images
-        path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+        name: immortalwrt-${{ env.TARGET }}-${{ env.SUBTARGET }}-ubi
+        path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*factory.ubi
+        retention-days: 7
+        if-no-files-found: warn
+
+    - name: Upload build artifacts (ubi固件)
+      if: steps.cache-hash.outputs.cache-hit != 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: immortalwrt-${{ env.TARGET }}-${{ env.SUBTARGET }}-bin
+        path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*sysupgrade.bin
         retention-days: 7
         if-no-files-found: warn
 
@@ -172,7 +181,7 @@ jobs:
     - name: List firmware files (debug)
       if: steps.cache-hash.outputs.cache-hit != 'true'
       run: |
-        ls -la $GITHUB_WORKSPACE/bin/targets/x86/64/
+        ls -la $GITHUB_WORKSPACE/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/
         
         ls -la $GITHUB_WORKSPACE/config-artifacts/
 
@@ -182,7 +191,7 @@ jobs:
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: immortalwrt-x86-64-config
+        name: immortalwrt-ax3600-config
         path: config-artifacts/
         retention-days: 30
         if-no-files-found: error
@@ -222,7 +231,9 @@ jobs:
         # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
         tag_name: AX3600-nightly
         files: |
-          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*factory.ubi
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*sysupgrade.bin
+          
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         
