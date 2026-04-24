@@ -83,6 +83,7 @@ jobs:
             --exclude='*.ipk' \
             --exclude='*.bin' \
             --exclude='*.elf' \
+            --exclude='build-artifacts-stage1.tar.gz'
             .
             
       - name: Upload artifacts for stage 2
