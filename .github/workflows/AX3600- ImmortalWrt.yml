@@ -224,12 +224,26 @@ jobs:
           echo "配置文件已提交到仓库的 swlplay/history 目录"
         fi
 
+    - name: Extract kernel version
+      id: kernel
+      run: |
+        # 示例1：从生成的镜像文件名中提取（假设文件名格式固定）
+        IMAGE_PATH="bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/"
+        KERNEL_VER=$(ls $IMAGE_PATH | grep 'squashfs-combined-efi.img.gz' | head -1 | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)')
+      
+        # 示例2：或者从内核版本文件读取（如果构建系统生成了 version 文件）
+        # KERNEL_VER=$(cat bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/kernel_version.txt)
+      
+        echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
+        echo "Found kernel version: $KERNEL_VER"
+        
     - name: Upload squashfs-combined-efi firmware to Release
       if: steps.cache-hash.outputs.cache-hit != 'true'
       uses: softprops/action-gh-release@v2
       with:
         # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
-        tag_name: AX3600-nightly
+        tag_name: AX3600-immortalwrt
+        release_name: AX3600 immortalwrt (kernel ${{ env.KERNEL_VER }})      
         files: |
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*factory.ubi
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*sysupgrade.bin
