@@ -30,19 +30,6 @@ modules=(
   "swlplay/package/kiddin9:https://github.com/kiddin9/openwrt-thunder.git"
 )
 
-# ==================== 函数：检查子模块是否已初始化 ====================
-is_submodules_initialized() {
-    if [ ${#modules[@]} -eq 0 ]; then
-        return 0
-    fi
-    local first_path="${modules[0]%%:*}"
-    if [ -d "$first_path/.git" ] || [ -f "$first_path/.git" ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 # ==================== 0. 确保主仓库目录存在且为 Git 仓库 ====================
 if [ ! -d "$MAIN_REPO_DIR" ]; then
     echo "目录 $MAIN_REPO_DIR 不存在，正在从自己的仓库克隆: $MY_FORK_URL"
