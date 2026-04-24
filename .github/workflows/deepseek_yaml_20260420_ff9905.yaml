@@ -8,38 +8,30 @@ jobs:
   build-stage1:
     runs-on: ubuntu-22.04
     steps:
-          - name: 释放前查看磁盘空间
-      run: df -h
+      - name: 释放前查看磁盘空间
+        run: df -h
 
-    - name: 手动删除额外工具缓存并清理 apt 缓存
-      run: |
-        echo "删除 /opt/hostedtoolcache ..."
-        sudo rm -rf /opt/hostedtoolcache
-        echo "删除其他大目录 ..."
-        sudo rm -rf /usr/share/swift /usr/local/julia* /usr/lib/jvm /usr/local/.ghcup /usr/local/share/chromium /usr/share/dotnet /usr/local/lib/android
-    
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        # 确保拉取所有分支和历史，以便后续推送
-        fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: 安装编译依赖
-      run: |
-        sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
-
-        sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
-           
-    - name: 编译依赖按装后磁盘空间
-      run: df -h
-      - name: Clone ImmortalWrt source
+      - name: 手动删除额外工具缓存并清理 apt 缓存
         run: |
-          git clone --depth 1 https://github.com/immortalwrt/immortalwrt.git source
-          cd source
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          echo "删除 /opt/hostedtoolcache ..."
+          sudo rm -rf /opt/hostedtoolcache
+          echo "删除其他大目录 ..."
+          sudo rm -rf /usr/share/swift /usr/local/julia* /usr/lib/jvm /usr/local/.ghcup /usr/local/share/chromium /usr/share/dotnet /usr/local/lib/android
+    
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # 确保拉取所有分支和历史，以便后续推送
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 安装编译依赖
+        run: |
+          sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
+          sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
+      - name: 编译依赖按装后磁盘空间
+        run: df -h
+      
       - name: Configure for x86_64 target
         working-directory: source
         run: |
