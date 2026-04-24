@@ -44,7 +44,7 @@ jobs:
        
           # 初始化空间使用记录
           echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
-          du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
         
           echo "开始更新feeds..."
           ./scripts/feeds update -a
@@ -140,7 +140,7 @@ jobs:
          
           # 初始化空间使用记录
           echo "第二阶段开始时:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
-          du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
         
      
           cd $GITHUB_WORKSPACE/feeds/packages/libs/libffi/
