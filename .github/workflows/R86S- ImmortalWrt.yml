@@ -235,8 +235,6 @@ jobs:
         # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
         tag_name: R86S-immortalwrt
         release_name: R86S immortalwrt (kernel ${{ env.KERNEL_VER }})
-        body: |
-          内核版本: ${{ env.KERNEL_VER }}    
         files: |
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
           overwrite: true   # 如果有同名文件则覆盖
