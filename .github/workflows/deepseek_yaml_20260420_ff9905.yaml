@@ -31,8 +31,9 @@ jobs:
 
       - name: 安装编译依赖
         run: |
-          sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
-          sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev gawk git gettext libssl-dev zlib1g-dev ccache unzip python3 perl
+
       - name: 编译依赖按装后磁盘空间
         run: df -h
         
@@ -83,7 +84,7 @@ jobs:
             --exclude='*.ipk' \
             --exclude='*.bin' \
             --exclude='*.elf' \
-            
+            --exclude='build-artifacts-stage1.tar.gz' \ 
             .         
 
   build-stage2:
@@ -123,8 +124,8 @@ jobs:
           
       - name: 安装编译依赖
         run: |
-          sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
-          sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev gawk git gettext libssl-dev zlib1g-dev ccache unzip python3 perl
           
       - name: 编译依赖按装后磁盘空间
         run: df -h
