@@ -74,8 +74,17 @@ jobs:
           make toolchain/compile -j$(nproc) V=s
           make target/linux/compile -j$(nproc) V=s
 
-      - 
-          
+      - name: Package essential build artifacts
+        run: |
+          # cd source
+          tar --wildcards -czf build-artifacts-stage1.tar.gz \
+            --exclude='build_dir/target-*/**/*.o' \
+            --exclude='build_dir/target-*/**/*.la' \
+            --exclude='*.ipk' \
+            --exclude='*.bin' \
+            --exclude='*.elf' \
+            
+            .         
 
   build-stage2:
     runs-on: ubuntu-22.04
