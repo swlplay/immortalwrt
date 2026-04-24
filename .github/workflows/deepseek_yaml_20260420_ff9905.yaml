@@ -74,16 +74,22 @@ jobs:
           make toolchain/compile -j$(nproc) V=s
           make target/linux/compile -j$(nproc) V=s
 
-      - name: Package essential build artifacts
+      - name: Debug current directory and files
         run: |
-          tar --wildcards -czf build-artifacts-stage1.tar.gz \
-            --exclude='build_dir/target-*/**/*.o' \
-            --exclude='build_dir/target-*/**/*.la' \
-            --exclude='*.ipk' \
-            --exclude='*.bin' \
-            --exclude='*.elf' \
-            --exclude='build-artifacts-stage1.tar.gz'
-            .
+         set -ex
+         echo "=== 当前工作目录 ==="
+         pwd
+         echo "=== 目录内容（含隐藏文件） ==="
+         ls -la
+         echo "=== 统计不同类型文件数量（用于检查排除规则是否过滤掉所有） ==="
+         echo "总文件数: $(find . -type f | wc -l)"
+         echo "排除 .o 后: $(find . -type f -not -name '*.o' | wc -l)"
+         echo "排除 .o .la 后: $(find . -type f -not -name '*.o' -not -name '*.la' | wc -l)"
+         echo "排除 .o .la .ipk 后: $(find . -type f -not -name '*.o' -not -name '*.la' -not -name '*.ipk' | wc -l)"
+         echo "排除 .o .la .ipk .bin 后: $(find . -type f -not -name '*.o' -not -name '*.la' -not -name '*.ipk' -not -name '*.bin' | wc -l)"
+         echo "排除 .o .la .ipk .bin .elf 后: $(find . -type f -not -name '*.o' -not -name '*.la' -not -name '*.ipk' -not -name '*.bin' -not -name '*.elf' | wc -l)"
+         echo "=== 未被排除的文件样例（前10个） ==="
+         find . -type f -not -name '*.o' -not -name '*.la' -not -name '*.ipk' -not -name '*.bin' -not -name '*.elf' | head -10
             
       - name: Upload artifacts for stage 2
         uses: actions/upload-artifact@v4
