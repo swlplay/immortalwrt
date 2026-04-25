@@ -87,7 +87,7 @@ else
     # stash 本地修改
     old_stash_count=$(git stash list | wc -l)
     if [ -n "$(git status --porcelain)" ]; then
-        echo "发现本地修改，正在 stash 保存..."
+        echo -e "\033[0;33m⚠️ 注意：发现本地修改，正在 stash 保存...\033[0m"
         git stash push --include-untracked -m "自动 stash 于 $(date)" > /dev/null 2>&1 || true
         new_stash_count=$(git stash list | wc -l)
         if [ $new_stash_count -gt $old_stash_count ]; then
@@ -107,18 +107,22 @@ else
     git fetch origin master
 
     # 合并 origin/master，冲突时自动采用远程版本（保留另一台电脑的提交）
-    echo "正在合并 origin/master（冲突时自动采用远程版本）..."
+    echo -e "\033[0;33m⚠️ 注意：正在合并 origin/master（冲突时自动采用远程版本）...\033[0m"
     if ! git merge origin/master -X theirs --no-edit; then
-        echo -e "\033[0;31m❌ 错误：合并 origin/master 失败，可能存在无法自动解决的冲突，请手动处理\033[0m"
+        echo -e "\033[0;31m❌ 错误：即使自动采用远程版本，合并 origin/master 仍然失败（可能存在文件删除/重命名等结构性冲突），请手动处理\033[0m"
         git merge --abort
         if [ "$stashed_main" = true ]; then
-            git stash pop
+            echo -e "\033[0;33m⚠️ 注意：正在恢复之前暂存的本地修改...\033[0m"
+            if git stash pop; then
+                echo "已恢复本地修改"
+            else
+                echo -e "\033[0;33m⚠️ 警告：恢复本地修改时发生冲突，请手动解决\033[0m"
+            fi
         fi
         exit 1
     fi
-
     # 再 rebase 到上游版本，冲突时自动采用上游
-    echo "正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)..."
+    echo -e "\033[0;33m⚠️ 正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)...\033[0m"
     if git rebase "upstream/$upstream_branch" -X theirs; then
         echo "主仓库 rebase 成功"
     else
@@ -218,7 +222,7 @@ else
         # stash 本地修改
         old_stash_count=$(git stash list | wc -l)
         if [ -n "$(git status --porcelain)" ]; then
-            echo "发现本地修改，正在 stash 保存..."
+            echo -e "\033[0;33m⚠️ 注意：发现本地修改，正在 stash 保存...\033[0m"
             git stash push --include-untracked -m "自动 stash 于 $(date)" > /dev/null 2>&1 || true
             new_stash_count=$(git stash list | wc -l)
             if [ $new_stash_count -gt $old_stash_count ]; then
@@ -281,7 +285,7 @@ else
         fi
 
         echo "当前分支: master，上游分支: $upstream_branch"
-        echo "正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)..."
+        echo -e "\033[0;33m⚠️ 正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)...\033[0m"
         if git rebase "upstream/$upstream_branch" -X ours; then
             echo "rebase 成功"
         else
