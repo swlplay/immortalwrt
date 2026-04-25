@@ -1,0 +1,16 @@
+--- a/sys-utils/nsenter.c
++++ b/sys-utils/nsenter.c
+@@ -52,6 +52,13 @@
+ #include "all-io.h"
+ #include "namespace.h"
+ 
++/* musl does not define AT_HANDLE_FID */
++#ifndef AT_HANDLE_FID
++#define AT_HANDLE_FID		0x200	/* file handle is needed to compare
++					   object identity and may not be
++					   usable with open_by_handle_at(2) */
++#endif
++
+ #ifndef NS_GET_NSTYPE
+ # define NS_GET_NSTYPE		_IO(0xb7, 0x3)
+ #endif
