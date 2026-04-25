@@ -45,11 +45,10 @@ jobs:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: 安装编译依赖
-      run: |
-        sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
-
-        sudo -E bash "$GITHUB_WORKSPACE/swlplay/init_build_environment.sh"
+      - name: 安装编译依赖
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev gawk git gettext libssl-dev zlib1g-dev ccache unzip python3 perl
            
     - name: 编译依赖按装后磁盘空间
       run: df -h
@@ -227,15 +226,9 @@ jobs:
     - name: Extract kernel version
       id: kernel
       run: |
-        # 示例1：从生成的镜像文件名中提取（假设文件名格式固定）
-        IMAGE_PATH="bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/"
-        KERNEL_VER=$(ls $IMAGE_PATH | grep 'squashfs-combined-efi.img.gz' | head -1 | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)')
-      
-        # 示例2：或者从内核版本文件读取（如果构建系统生成了 version 文件）
-        # KERNEL_VER=$(cat bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/kernel_version.txt)
-      
-        echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
-        echo "Found kernel version: $KERNEL_VER"
+          KERNEL_VER=$(make -C $GITHUB_WORKSPACE --no-print-directory val.LINUX_VERSION 2>/dev/null)      
+          echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
+          echo "Found kernel version: $KERNEL_VER"
         
     - name: Upload squashfs-combined-efi firmware to Release
       if: steps.cache-hash.outputs.cache-hit != 'true'
@@ -247,8 +240,8 @@ jobs:
         files: |
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*factory.ubi
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*sysupgrade.bin
-          overwrite: true   # 如果有同名文件则覆盖
-          # 注意：overwrite 不会删除旧版本的不同名文件
+        overwrite: true   # 如果有同名文件则覆盖
+        # 注意：overwrite 不会删除旧版本的不同名文件
           
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
