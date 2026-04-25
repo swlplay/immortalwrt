@@ -43,8 +43,8 @@ jobs:
           set -ex
        
           # 初始化空间使用记录
-          echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
-          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage1.log
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage1.log
         
           echo "开始更新feeds..."
           ./scripts/feeds update -a
@@ -80,6 +80,7 @@ jobs:
           # cd source    
           mkdir -p /tmp
           tar --wildcards -czf /tmp/build-artifacts-stage1.tar.gz \
+            --exclude='.git' \
             --exclude='build_dir/target-*/**/*.o' \
             --exclude='build_dir/target-*/**/*.la' \
             --exclude='*.ipk' \
@@ -146,8 +147,8 @@ jobs:
           bash $GITHUB_WORKSPACE/scripts/zckcsh.sh
          
           # 初始化空间使用记录
-          echo "第二阶段开始时:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
-          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          echo "第二阶段开始时:" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage1.log
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage1.log
         
      
           cd $GITHUB_WORKSPACE/feeds/packages/libs/libffi/
@@ -185,30 +186,51 @@ jobs:
 
       - name: Continue building packages and final firmware
         # working-directory: source
-        run: make -j$(nproc) V=s
+        run: make -j1 V=sc
 
       - name: Upload built firmware
         uses: actions/upload-artifact@v4
         with:
           name: firmware-x86-64
-          path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*.img.gz
+          path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
           retention-days: 7
+
+      - name: Commit config files to repository
+        shell: bash
+        if: steps.cache-hash.outputs.cache-hit != 'true' && github.event_name != 'pull_request'   # ← 排除 PR 触发
+        run: |
+          echo "工作目录内容:"
+          ls -la
+               
+          # 配置 Git
+          git config user.email "swlplay@gmail.com"
+          git config user.name "swlplay"
+        
+          # 添加配置目录（使用新的目录名）
+          git add "$GITHUB_WORKSPACE/swlplay/history/"
+        
+          # 只在有变化时提交
+          if git diff --staged --quiet; then
+            echo "配置文件无变化，跳过提交"
+          else
+            git commit -m "编译成功的.config备份、磁盘空间使用日志文件 [skip ci]"
+
+            # 拉取远程更新避免冲突（自动暂存未提交更改，但此时已无未提交更改）
+            git pull --rebase
+
+            # 使用 token 推送
+            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:master
+            echo "配置文件已提交到仓库的 swlplay/history 目录"
+          fi
 
       - name: Extract kernel version
         id: kernel
         run: |
-          # 示例1：从生成的镜像文件名中提取（假设文件名格式固定）
-          IMAGE_PATH="bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/"
-          KERNEL_VER=$(ls $IMAGE_PATH | grep 'squashfs-combined-efi.img.gz' | head -1 | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)')
-      
-          # 示例2：或者从内核版本文件读取（如果构建系统生成了 version 文件）
-          # KERNEL_VER=$(cat bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/kernel_version.txt)
-      
+          KERNEL_VER=$(make -C $GITHUB_WORKSPACE --no-print-directory val.LINUX_VERSION 2>/dev/null)      
           echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
           echo "Found kernel version: $KERNEL_VER"
       
       - name: Upload squashfs-combined-efi firmware to Release
-        if: steps.cache-hash.outputs.cache-hit != 'true'
         uses: softprops/action-gh-release@v2
         with:
           # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
@@ -216,8 +238,8 @@ jobs:
           release_name: R86S immortalwrt (kernel ${{ env.KERNEL_VER }})
           files: |
             bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
-            overwrite: true   # 如果有同名文件则覆盖
-            # 注意：overwrite 不会删除旧版本的不同名文件
+          overwrite: true   # 如果有同名文件则覆盖
+          # 注意：overwrite 不会删除旧版本的不同名文件
 
 
 
