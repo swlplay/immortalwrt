@@ -161,12 +161,6 @@ jobs:
       - name: 编译依赖按装后磁盘空间
         run: df -h
 
-      - name: .config文件及第三方插件配置
-        shell: bash
-        run: |
-          set -ex         
-          # 初始化空间使用记录
-
       - name: Continue building packages and final firmware
         # working-directory: source
         run: |
