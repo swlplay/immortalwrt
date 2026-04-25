@@ -86,6 +86,13 @@ jobs:
             --exclude='*.bin' \
             --exclude='*.elf' \
             . && mv /tmp/build-artifacts-stage1.tar.gz .
+            
+      - name: Upload artifacts for stage 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-stage1
+          path: build-artifacts-stage1.tar.gz
+          retention-days: 1
 
   build-stage2:
     runs-on: ubuntu-22.04
