@@ -247,6 +247,8 @@ jobs:
         files: |
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*factory.ubi
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*sysupgrade.bin
+          overwrite: true   # 如果有同名文件则覆盖
+          # 注意：overwrite 不会删除旧版本的不同名文件
           
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
