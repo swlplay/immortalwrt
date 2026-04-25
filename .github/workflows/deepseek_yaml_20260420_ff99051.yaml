@@ -1,0 +1,213 @@
+name: Stepwise Build (Toolchain + Kernel then Packages)
+
+env:
+  TARGET: x86
+  SUBTARGET: 64
+
+on:
+  # 手动触发：允许在网页上手动触发
+  workflow_dispatch:
+
+jobs:
+  build-stage1:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 释放前查看磁盘空间
+        run: df -h
+
+      - name: 手动删除额外工具缓存并清理 apt 缓存
+        run: |
+          echo "删除 /opt/hostedtoolcache ..."
+          sudo rm -rf /opt/hostedtoolcache
+          echo "删除其他大目录 ..."
+          sudo rm -rf /usr/share/swift /usr/local/julia* /usr/lib/jvm /usr/local/.ghcup /usr/local/share/chromium /usr/share/dotnet /usr/local/lib/android
+    
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # 确保拉取所有分支和历史，以便后续推送
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 安装编译依赖
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev gawk git gettext libssl-dev zlib1g-dev ccache unzip python3 perl
+
+      - name: 编译依赖按装后磁盘空间
+        run: df -h
+        
+      - name: Build ImmortalWrt if source updated
+        shell: bash
+        run: |
+          set -ex
+       
+          # 空间使用记录
+          echo "初始状态:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+        
+          echo "开始更新feeds..."
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a      
+          ./scripts/feeds uninstall ddns-go smartdns qBittorrent-Enhanced-Edition luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go || true
+      
+      - name: .config文件配置
+        run: |     
+          #子仓库初始化
+          bash $GITHUB_WORKSPACE/scripts/zckcsh.sh        
+     
+          cd $GITHUB_WORKSPACE/feeds/packages/libs/libffi/
+          ls -la
+
+          cd $GITHUB_WORKSPACE/swlplay/libffi/
+          ls -la
+
+          cp Makefile $GITHUB_WORKSPACE/feeds/packages/libs/libffi/Makefile
+          cd $GITHUB_WORKSPACE/feeds/packages/libs/libffi/
+          ls -la
+
+          cp -r $GITHUB_WORKSPACE/swlplay/package/* $GITHUB_WORKSPACE/package/feeds/
+
+          ls -la $GITHUB_WORKSPACE/package/feeds/chenmozhijin/ || true
+          ls -la $GITHUB_WORKSPACE/package/feeds/kiddin9/ || true
+          ls -la $GITHUB_WORKSPACE/package/feeds/pingdongyi/ || true
+          ls -la $GITHUB_WORKSPACE/package/feeds/xuanranran/ || true
+          ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-advancedplus/ || true
+          ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-ddns-go/ || true
+          ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-netspeedtest/ || true
+          ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-timecontrol/ || true
+
+          echo "配置编译目标为 $TARGET/$SUBTARGET..."
+          # 复制预定义的配置
+          cd $GITHUB_WORKSPACE/swlplay/config/
+          ls -la
+
+          cp R86S.config $GITHUB_WORKSPACE/.config
+          cd $GITHUB_WORKSPACE/                      
+          ls -la
+        
+          make defconfig
+          ls -la
+          
+      - name: Download all source tarballs
+        # working-directory: source
+        run: make download -j$(nproc) V=s
+
+      - name: Build toolchain and kernel only
+        # working-directory: source
+        run: |
+          make toolchain/compile -j$(nproc) V=s
+          make target/linux/compile -j$(nproc) V=s
+
+      - name: Package essential build artifacts
+        run: |
+          # cd source    
+          mkdir -p /tmp
+          tar --wildcards -czf /tmp/build-artifacts-stage1.tar.gz \
+            --exclude='build_dir/target-*/**/*.o' \
+            --exclude='build_dir/target-*/**/*.la' \
+            --exclude='*.ipk' \
+            --exclude='*.bin' \
+            --exclude='*.elf' \
+            . && mv /tmp/build-artifacts-stage1.tar.gz .
+            
+      - name: Upload artifacts for stage 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-stage1
+          path: build-artifacts-stage1.tar.gz
+          retention-days: 1
+
+  build-stage2:
+    runs-on: ubuntu-22.04
+    needs: build-stage1
+    steps:
+      - name: 释放前查看磁盘空间
+        run: df -h
+
+      - name: 手动删除额外工具缓存并清理 apt 缓存
+        run: |
+          echo "删除 /opt/hostedtoolcache ..."
+          sudo rm -rf /opt/hostedtoolcache
+          echo "删除其他大目录 ..."
+          sudo rm -rf /usr/share/swift /usr/local/julia* /usr/lib/jvm /usr/local/.ghcup /usr/local/share/chromium /usr/share/dotnet /usr/local/lib/android
+
+      - name: Download stage1 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-stage1
+          path: .
+      
+      - name: Extract artifacts into source directory
+        run: |
+          # mkdir -p source
+          tar -xzf build-artifacts-stage1.tar.gz
+          rm build-artifacts-stage1.tar.gz
+          
+      - name: Verify extracted content
+        run: |
+          if [ -f Makefile ]; then
+            echo "✓ Makefile found"
+          else
+            echo "✗ Makefile NOT found"
+            exit 1
+          fi
+          
+      - name: 安装编译依赖
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev gawk git gettext libssl-dev zlib1g-dev ccache unzip python3 perl
+          
+      - name: 编译依赖按装后磁盘空间
+        run: df -h
+
+      - name: .config文件及第三方插件配置
+        shell: bash
+        run: |
+          set -ex         
+          # 初始化空间使用记录
+
+      - name: Continue building packages and final firmware
+        # working-directory: source
+        run: |
+          # 空间使用记录
+          echo "第二阶段编译开始时:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+
+          make -j$(nproc) V=s
+
+          # 空间使用记录
+          echo "编译结束时:" > $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> $GITHUB_WORKSPACE/swlplay/history/R86S_space_usage.log
+
+      - name: Upload built firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-x86-64
+          path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*.img.gz
+          retention-days: 7
+
+      - name: Extract kernel version
+        id: kernel
+        run: |
+          # 示例1：从生成的镜像文件名中提取（假设文件名格式固定）
+          IMAGE_PATH="bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/"
+          KERNEL_VER=$(ls $IMAGE_PATH | grep 'squashfs-combined-efi.img.gz' | head -1 | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)')
+      
+          # 示例2：或者从内核版本文件读取（如果构建系统生成了 version 文件）
+          # KERNEL_VER=$(cat bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/kernel_version.txt)
+      
+          echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
+          echo "Found kernel version: $KERNEL_VER"
+      
+      - name: Upload squashfs-combined-efi firmware to Release
+        if: steps.cache-hash.outputs.cache-hit != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
+          tag_name: R86S1-immortalwrt
+          release_name: R86S immortalwrt (kernel ${{ env.KERNEL_VER }})
+          files: |
+            bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+            overwrite: true   # 如果有同名文件则覆盖
+            # 注意：overwrite 不会删除旧版本的不同名文件
