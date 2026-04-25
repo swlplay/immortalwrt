@@ -122,7 +122,7 @@ else
         exit 1
     fi
     # 再 rebase 到上游版本，冲突时自动采用上游
-    echo -e "\033[0;33m⚠️ 正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)...\033[0m"
+    echo -e "\033[0;33m⚠️ 注意：正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)...\033[0m"
     if git rebase "upstream/$upstream_branch" -X theirs; then
         echo "主仓库 rebase 成功"
     else
@@ -243,6 +243,19 @@ else
             git remote add upstream "$upstream_url"
         fi
 
+        # ===== 新增：先合并自己的远程 origin/master（保留另一台电脑的提交） =====
+        echo -e "\033[0;33m⚠️ 正在合并 origin/master（冲突时自动采用远程版本）...\033[0m"
+        git fetch origin master
+        if ! git merge origin/master -X theirs --no-edit; then
+            echo -e "\033[0;31m❌ 错误：即使自动采用远程版本，合并 origin/master 仍然失败（可能存在文件删除/重命名等结构性冲突），跳过 $path\033[0m"
+            git merge --abort
+            if [ "$stashed" = true ]; then
+                git stash pop
+            fi
+            cd "$MAIN_REPO" > /dev/null
+            continue
+        fi
+
         # 获取上游默认分支
         upstream_branch=""
         head_ref=$(git ls-remote --symref upstream HEAD | head -1 | awk '{print $2}' | sed 's|refs/heads/||')
@@ -285,7 +298,7 @@ else
         fi
 
         echo "当前分支: master，上游分支: $upstream_branch"
-        echo -e "\033[0;33m⚠️ 正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)...\033[0m"
+        echo -e "\033[0;33m⚠️注意：正在 rebase 到 upstream/$upstream_branch (冲突时自动采用上游版本)...\033[0m"
         if git rebase "upstream/$upstream_branch" -X ours; then
             echo "rebase 成功"
         else
@@ -295,7 +308,10 @@ else
         fi
 
         echo "强制推送到 origin/master..."
-        git push origin master --force-with-lease
+        git push origin master --force-with-lease || {
+            echo -e "\033[0;31m❌ 错误：推送失败（远程可能有未同步的提交），跳过 $path\033[0m"
+            cd "$MAIN_REPO" > /dev/null; continue
+        }
 
         if [ "$stashed" = true ]; then
             echo "恢复之前 stash 的修改..."
@@ -327,7 +343,6 @@ if [[ "$run_sub_push" =~ ^[Yy]$ ]]; then
 else
     echo "跳过子仓库推送脚本"
 fi
-
 # ==================== 3. 更新主仓库的变更（合并子模块指针与主仓库文件） ====================
 echo ""
 echo "=== 更新主仓库的变更 ==="
