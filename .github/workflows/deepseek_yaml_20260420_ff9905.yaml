@@ -178,7 +178,10 @@ jobs:
 
           cp R86S.config $GITHUB_WORKSPACE/.config
           cd $GITHUB_WORKSPACE/                      
-          ls -la          
+          ls -la
+
+          make defconfig
+          ls -la
 
       - name: Continue building packages and final firmware
         # working-directory: source
@@ -190,3 +193,31 @@ jobs:
           name: firmware-x86-64
           path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*.img.gz
           retention-days: 7
+
+      - name: Extract kernel version
+        id: kernel
+        run: |
+          # 示例1：从生成的镜像文件名中提取（假设文件名格式固定）
+          IMAGE_PATH="bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/"
+          KERNEL_VER=$(ls $IMAGE_PATH | grep 'squashfs-combined-efi.img.gz' | head -1 | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)')
+      
+          # 示例2：或者从内核版本文件读取（如果构建系统生成了 version 文件）
+          # KERNEL_VER=$(cat bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/kernel_version.txt)
+      
+          echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
+          echo "Found kernel version: $KERNEL_VER"
+      
+      - name: Upload squashfs-combined-efi firmware to Release
+        if: steps.cache-hash.outputs.cache-hit != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
+          tag_name: R86S1-immortalwrt
+          release_name: R86S immortalwrt (kernel ${{ env.KERNEL_VER }})
+          files: |
+            bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*squashfs-combined-efi.img.gz
+            overwrite: true   # 如果有同名文件则覆盖
+            # 注意：overwrite 不会删除旧版本的不同名文件
+
+
+
