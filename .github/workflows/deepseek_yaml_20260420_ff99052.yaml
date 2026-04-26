@@ -206,6 +206,8 @@ jobs:
 
   build-stage3:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write          # ← 保留在这里   
     needs: build-stage2
     steps:
       - name: 释放前查看磁盘空间
