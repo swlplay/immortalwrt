@@ -277,7 +277,7 @@ jobs:
 
       - name: Commit config files to repository
         shell: bash
-        if: steps.cache-hash.outputs.cache-hit != 'true' && github.event_name != 'pull_request'   # ← 排除 PR 触发
+        if: github.event_name != 'pull_request'   # ← 排除 PR 触发
         run: |
           echo "工作目录内容:"
           ls -la
@@ -296,7 +296,7 @@ jobs:
             git commit -m "编译成功的.config备份、磁盘空间使用日志文件 [skip ci]"
 
             # 拉取远程更新避免冲突（自动暂存未提交更改，但此时已无未提交更改）
-            git pull --rebase
+            git pull origin master --rebase --autostash
 
             # 使用 token 推送
             git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:master
