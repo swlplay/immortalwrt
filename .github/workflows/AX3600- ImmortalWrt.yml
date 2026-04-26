@@ -1,4 +1,3 @@
- 
 name: Build XiaoMi AX3600 ImmortalWrt
 
 on:
@@ -115,11 +114,12 @@ jobs:
         ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-netspeedtest/
         ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-timecontrol/
         
-        #创建util-linux补丁
-        bash $GITHUB_WORKSPACE/swlplay/create-util-linux-patch.sh
-        ls -la $GITHUB_WORKSPACE/swlplay/
-        ls -l $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
-        cat -A $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
+        # 已改用 Perl 直接修改源码，不再需要补丁文件
+        # 下面的补丁创建步骤可保留但不会生效，建议删除以免混淆
+        # bash $GITHUB_WORKSPACE/swlplay/create-util-linux-patch.sh
+        # ls -la $GITHUB_WORKSPACE/swlplay/
+        # ls -l $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
+        # cat -A $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
       
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
         # 复制预定义的配置
@@ -137,6 +137,12 @@ jobs:
       run: |
         echo "=== immortalwrt编译 ==="
         cd $GITHUB_WORKSPACE/
+        
+        # 准备 util-linux 源码并修复 musl 缺少 AT_HANDLE_FID 的问题
+        make package/utils/util-linux/prepare -j$(nproc) || true
+        find build_dir -path "*/util-linux-*/sys-utils/nsenter.c" \
+          -exec perl -i -pe 's/^#include "namespace.h"/$&\n#ifndef AT_HANDLE_FID\n#define AT_HANDLE_FID 0x200\n#endif/' {} \;
+        
         make -j2 V=s
 
         echo "immortalwrt编译:" >> $GITHUB_WORKSPACE/swlplay/history/AX3600_space_usage.log
