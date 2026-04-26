@@ -137,17 +137,23 @@ jobs:
       run: |
         echo "=== immortalwrt编译 ==="
         cd $GITHUB_WORKSPACE/
-        
-        # 准备 util-linux 源码并修复 musl 缺少 AT_HANDLE_FID 的问题
+
+        # 1. 先解压并准备 util-linux 源码
         make package/utils/util-linux/prepare -j$(nproc) || true
+
+        # 2. 修复 nsenter.c 缺少 AT_HANDLE_FID
         find build_dir -path "*/util-linux-*/sys-utils/nsenter.c" \
-          -exec perl -i -pe 's/^#include "namespace.h"/$&\n#ifndef AT_HANDLE_FID\n#define AT_HANDLE_FID 0x200\n#endif/' {} \;
-        
+            -exec perl -i -pe 'if(/^#include "namespace.h"/){$_ .= "#ifndef AT_HANDLE_FID\n#define AT_HANDLE_FID 0x200\n#endif\n"}' {} \;
+
+        # 3. 修复 libmount/utils.c 缺少 STATX_MNT_ID / stx_mnt_id
+        find build_dir -path "*/util-linux-*/libmount/src/utils.c" \
+            -exec perl -0777 -i -pe 's/int get_mnt_id\(.*?\)\s*\{.*?\n\}/int get_mnt_id(const char *path, unsigned long *id) { return -1; }/s' {} \;
+
+        # 4. 正式编译
         make -j2 V=s
 
         echo "immortalwrt编译:" >> $GITHUB_WORKSPACE/swlplay/history/AX3600_space_usage.log
         du -sh . | grep -oE '[0-9.]+[A-Z]' >> $GITHUB_WORKSPACE/swlplay/history/AX3600_space_usage.log
-    
         df -h
 
     - name: Prepare cache marker
