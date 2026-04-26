@@ -120,9 +120,8 @@ jobs:
         ls -la $GITHUB_WORKSPACE/swlplay/
         ls -l $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
         cat -A $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
-
-        
-        echo "配置编译目标为 $TARGET/$SUBTARGET..."
+      
+       echo "配置编译目标为 $TARGET/$SUBTARGET..."
         # 复制预定义的配置
         cd $GITHUB_WORKSPACE/swlplay/config/
         ls -la
