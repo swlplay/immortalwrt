@@ -143,11 +143,11 @@ jobs:
 
         # 2. 修复 nsenter.c 缺少 AT_HANDLE_FID
         find build_dir -path "*/util-linux-*/sys-utils/nsenter.c" \
-            -exec perl -i -pe 'if(/^#include "namespace.h"/){$_ .= "#ifndef AT_HANDLE_FID\n#define AT_HANDLE_FID 0x200\n#endif\n"}' {} \;
+        -exec perl -i -pe 'if(/^#include "namespace.h"/){$_ .= "#ifndef AT_HANDLE_FID\n#define AT_HANDLE_FID 0x200\n#endif\n"}' {} \;
 
         # 3. 修复 libmount/utils.c 缺少 STATX_MNT_ID / stx_mnt_id
         find build_dir -path "*/util-linux-*/libmount/src/utils.c" \
-            -exec perl -0777 -i -pe 's/int get_mnt_id\(.*?\)\s*\{.*?\n\}/int get_mnt_id(const char *path, unsigned long *id) { return -1; }/s' {} \;
+        -exec perl -0777 -i -pe 's/int get_mnt_id\(.*?\)\s*\{.*?\n\}/int get_mnt_id(const char *path, unsigned long *id) { return -1; }/s' {} \;
 
         # 4. 正式编译
         make -j2 V=s
