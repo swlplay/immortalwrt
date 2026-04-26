@@ -114,13 +114,6 @@ jobs:
         ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-netspeedtest/
         ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-timecontrol/
         
-        # 已改用 Perl 直接修改源码，不再需要补丁文件
-        # 下面的补丁创建步骤可保留但不会生效，建议删除以免混淆
-        # bash $GITHUB_WORKSPACE/swlplay/create-util-linux-patch.sh
-        # ls -la $GITHUB_WORKSPACE/swlplay/
-        # ls -l $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
-        # cat -A $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
-      
         echo "配置编译目标为 $TARGET/$SUBTARGET..."
         # 复制预定义的配置
         cd $GITHUB_WORKSPACE/swlplay/config/
@@ -139,16 +132,8 @@ jobs:
         cd $GITHUB_WORKSPACE/
 
         # 1. 先解压并准备 util-linux 源码
-        make package/utils/util-linux/prepare -j$(nproc) || true
-
-        # 2. 修复 nsenter.c 缺少 AT_HANDLE_FID
-        find build_dir -path "*/util-linux-*/sys-utils/nsenter.c" \
-        -exec perl -i -pe 'if(/^#include "namespace.h"/){$_ .= "#ifndef AT_HANDLE_FID\n#define AT_HANDLE_FID 0x200\n#endif\n"}' {} \;
-
-        # 3. 修复 libmount/utils.c 缺少 STATX_MNT_ID / stx_mnt_id
-        find build_dir -path "*/util-linux-*/libmount/src/utils.c" \
-        -exec perl -0777 -i -pe 's/int get_mnt_id\(.*?\)\s*\{.*?\n\}/int get_mnt_id(const char *path, unsigned long *id) { return -1; }/s' {} \;
-
+        # make package/utils/util-linux/prepare -j$(nproc) || true
+     
         # 4. 正式编译
         make -j2 V=s
 
