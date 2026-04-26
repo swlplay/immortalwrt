@@ -76,7 +76,13 @@ jobs:
           ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-ddns-go/ || true
           ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-netspeedtest/ || true
           ls -la $GITHUB_WORKSPACE/package/feeds/sirpdboy/luci-app-timecontrol/ || true
-
+        
+          #创建util-linux补丁
+          bash $GITHUB_WORKSPACE/swlplay/create-util-linux-patch.sh
+          ls -la $GITHUB_WORKSPACE/swlplay/
+          ls -l $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
+          cat -A $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
+      
           echo "配置编译目标为 $TARGET/$SUBTARGET..."
           # 复制预定义的配置
           cd $GITHUB_WORKSPACE/swlplay/config/
