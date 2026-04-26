@@ -1,6 +1,6 @@
 #!/bin/bash
-mkdir -p ~/immortalwrt/package/utils/util-linux/patches
-cat > ~/immortalwrt/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch << 'EOF'
+mkdir -p $GITHUB_WORKSPACE/package/utils/util-linux/patches
+cat > $GITHUB_WORKSPACE/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch << 'EOF'
 --- a/sys-utils/nsenter.c
 +++ b/sys-utils/nsenter.c
 @@ -52,6 +52,13 @@
