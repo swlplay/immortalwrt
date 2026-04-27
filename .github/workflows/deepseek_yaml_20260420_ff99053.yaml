@@ -102,6 +102,12 @@ jobs:
       - name: Build toolchain and kernel only
         # working-directory: source
         run: |
+          echo "=== immortalwrt编译 ==="
+          cd $GITHUB_WORKSPACE/
+
+          # 1. 先解压并准备 util-linux 源码
+          # make package/utils/util-linux/prepare -j$(nproc) || true
+          
           make toolchain/compile -j$(nproc) V=s
           make target/linux/compile -j$(nproc) V=s
 
