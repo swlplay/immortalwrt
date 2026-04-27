@@ -244,7 +244,7 @@ else
         fi
 
         # ===== 新增：先合并自己的远程 origin/master（保留另一台电脑的提交） =====
-        echo -e "\033[0;33m⚠️ 正在合并 origin/master（冲突时自动采用远程版本）...\033[0m"
+        echo -e "\033[0;33m⚠️ 注意：正在合并 origin/master（冲突时自动采用远程版本）...\033[0m"
         git fetch origin master
         if ! git merge origin/master -X theirs --no-edit; then
             echo -e "\033[0;31m❌ 错误：即使自动采用远程版本，合并 origin/master 仍然失败（可能存在文件删除/重命名等结构性冲突），跳过 $path\033[0m"
