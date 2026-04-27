@@ -239,7 +239,7 @@ jobs:
     - name: Extract kernel version
       id: kernel
       run: |
-          KERNEL_VER=$(make -C $GITHUB_WORKSPACE --no-print-directory val.LINUX_VERSION 2>/dev/null)      
+          KERNEL_VER=$(make kernelversion 2>/dev/null | grep -oP '\d+\.\d+\.\d+')      
           echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
           echo "Found kernel version: $KERNEL_VER"
         
@@ -249,12 +249,13 @@ jobs:
       with:
         # 精确匹配以 squashfs-combined-efi.img.gz 结尾的文件
         tag_name: AX3600-immortalwrt
-        release_name: AX3600 immortalwrt (kernel ${{ env.KERNEL_VER }})      
+        name: AX3600 immortalwrt (kernel ${{ env.KERNEL_VER }})
+        # 注意：overwritee_files 不会删除旧版本的不同名文件
+        overwrite_files: true   # 如果有同名文件则覆盖
         files: |
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*factory.ubi
           bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*sysupgrade.bin
-        overwrite: true   # 如果有同名文件则覆盖
-        # 注意：overwrite 不会删除旧版本的不同名文件
+
           
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
