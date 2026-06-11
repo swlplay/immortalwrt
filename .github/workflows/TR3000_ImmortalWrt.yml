@@ -1,0 +1,264 @@
+name: Build Cudy TR3000 ImmortalWrt
+
+on:
+  # 代码推送触发：推送到 master 分支时触发
+  push:
+    branches: [ main ]
+
+  # 手动触发：允许在网页上手动触发
+  workflow_dispatch:
+
+env:
+  TZ: Asia/Shanghai
+  TARGET: mediatek
+  SUBTARGET: filogic
+  DEVICE_NAME: TR3000
+
+
+jobs:
+ check-and-build:
+  runs-on: ubuntu-latest
+  permissions:
+    contents: write          # ← 保留在这里
+
+  steps:
+    - name: 检查服务器性能
+      run: |
+        echo "-------------------------------CPU信息-------------------------------"
+        # 物理 CPU 数量（插槽数）
+        phys_cpus=$(lscpu | grep "^Socket(s):" | awk '{print $2}')
+        if [ -z "$phys_cpus" ]; then
+          phys_cpus=$(cat /proc/cpuinfo | grep "physical id" | sort -u | wc -l)
+        fi
+        echo "CPU物理数量: $phys_cpus"
+        echo "CPU型号: $(lscpu | grep "^Model name:" | cut -d: -f2 | sed 's/^[ \t]*//')"
+        echo "CPU核心数: $(nproc) 核"
+        echo ""
+        echo "-------------------------------内存信息-------------------------------"
+        # 直接显示 free -h 输出，更直观
+        echo "总物理内存："
+        free -h | grep Mem | awk '{print "总内存: " $2}'
+        echo "可用内存："
+        free -h | grep Mem | awk '{print "可用: " $7}'
+        echo ""
+
+        echo "-------------------------------硬盘信息-------------------------------"
+        echo "硬盘数量：$(lsblk -d -o TYPE | grep -c "^disk$")"
+        echo ""
+        # 显示物理磁盘列表（名称、大小、型号）
+        echo "物理磁盘列表："
+        lsblk -d -o NAME,SIZE,MODEL 2>/dev/null || echo "无法获取磁盘型号"
+        echo ""
+        # 显示真实文件系统使用情况（排除虚拟文件系统）
+        echo "挂载点使用情况："
+        df -h
+
+    - name: 清理磁盘空间
+      run: |
+        sudo swapoff -a
+        # 1. 计算这些目录当前占用的总大小（人类可读）
+        sudo du -sh /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null
+
+        # 2. 或者只统计总大小（不显示每个目录明细）
+        sudo du -ch /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null | tail -1
+
+        sudo rm -rf /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift
+
+    - name: 安装编译依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get update
+        sudo apt-get install -y binutils bison build-essential bzip2 ccache diffutils findutils flex g++-multilib gawk gcc gcc-multilib gettext git grep libc-dev libelf-dev \
+          libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which        
+        test -f /usr/include/bits/libc-header-start.h && echo "头文件检查通过" || { echo "缺失 libc-header-start.h"; exit 1; }
+
+    - name: 编译依赖按装后磁盘空间
+      run: df -h
+
+    - name: 检出仓库
+      uses: actions/checkout@v6
+      with:
+        # 确保拉取所有分支和历史，以便后续推送
+        fetch-depth: 1
+        submodules: recursive
+        persist-credentials: false
+        ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: 配置 SSH 密钥
+      uses: webfactory/ssh-agent@v0.10.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: 官方及第三方软件包更新与安装
+      shell: bash
+      run: |
+        set -ex
+        echo "开始更新feeds"
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        ./scripts/feeds uninstall ddns-go smartdns qbittorrent qBittorrent-Enhanced-Edition qt6base qt6tools luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go || true
+
+        echo "正在更新所有子模块到 main 分支最新"
+        git submodule update --init --remote --depth 1 --force
+        bash ${{ github.workspace }}/submodule/swlplay/cshzmk.sh
+        tree -L 2 -p -u -g -h -D ${{ github.workspace }}/submodule/ || true
+
+        ls -la ${{ github.workspace }}/feeds/packages/libs/libffi/ || true
+        ls -la ${{ github.workspace }}/submodule/swlplay/libffi/ || true
+        cp ${{ github.workspace }}/submodule/swlplay/libffi/Makefile ${{ github.workspace }}/feeds/packages/libs/libffi/Makefile
+        ls -la ${{ github.workspace }}/feeds/packages/libs/libffi/ || true
+
+        cp -r ${{ github.workspace }}/submodule/* ${{ github.workspace }}/package/feeds/
+        rm -rf ${{ github.workspace }}/package/feeds/swlplay
+        ls -la ${{ github.workspace }}/package/feeds/ || true
+
+        # 创建util-linux补丁
+        # bash ${{ github.workspace }}/swlplay/create-util-linux-patch.sh
+        # ls -la ${{ github.workspace }}/swlplay/
+        # ls -l ${{ github.workspace }}/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
+        # cat -A ${{ github.workspace }}/package/utils/util-linux/patches/001-define-AT_HANDLE_FID.patch
+
+    - name: .config文件配置
+      run: |
+        # 空间使用记录
+        echo "初始状态:" > ${{ github.workspace }}/submodule/swlplay/history/${{ env.DEVICE_NAME }}_space_usage.log
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> ${{ github.workspace }}/submodule/swlplay/history/${{ env.DEVICE_NAME }}_space_usage.log
+
+        echo "配置编译目标为 ${{ env.TARGET }}/${{ env.SUBTARGET }}"
+        # 复制预定义的配置
+        ls -la ${{ github.workspace }}/submodule/swlplay/config/ || true
+        cp ${{ github.workspace }}/submodule/swlplay/config/${{ env.DEVICE_NAME }}.config ${{ github.workspace }}/.config
+        ls -la ${{ github.workspace }}/ || true                      
+        make defconfig
+        ls -la || true
+
+    - name: 下载所有源代码
+      # working-directory: source
+      run: make download -j$(nproc) V=s
+
+    - name: 构建软件包和最终固件
+      run: |
+        # 1. 先解压并准备 util-linux 源码
+        # make package/utils/util-linux/prepare -j$(nproc) || true
+
+        # 2. 完整编译
+        make -j$(nproc) V=s
+
+        echo "编译结束时:" >> ${{ github.workspace }}/submodule/swlplay/history/${{ env.DEVICE_NAME }}_space_usage.log
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - $(du -sh . | grep -oE '[0-9.]+[A-Z]')" >> ${{ github.workspace }}/submodule/swlplay/history/${{ env.DEVICE_NAME }}_space_usage.log
+
+    - name: 保存配置文件
+      shell: bash
+      run: |        
+        # 保存带时间戳的配置文件到新目录
+        cp  ${{ github.workspace }}/.config ${{ github.workspace }}/submodule/swlplay/history/${{ env.DEVICE_NAME }}.config
+        echo "配置文件已保存：${{ github.workspace }}/submodule/swlplay/history/${{ env.DEVICE_NAME }}.config"
+
+        # 为单独配置文件构建物创建目录
+        mkdir -p ${{ github.workspace }}/config-artifacts  
+        cp  ${{ github.workspace }}/.config ${{ github.workspace }}/config-artifacts/${{ env.DEVICE_NAME }}.config
+        echo "配置文件已保存至 ${{ github.workspace }}/config-artifacts/${{ env.DEVICE_NAME }}.config"
+
+    - name: 查看生成的固件和配置
+      run: |
+        ls -la ${{ github.workspace }}/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/ || true
+
+        ls -la ${{ github.workspace }}/config-artifacts/ || true
+
+        ls -la ${{ github.workspace }}/submodule/swlplay/history/ || true  
+
+    - name: 上传配置文件
+      uses: actions/upload-artifact@v7
+      with:
+        name: immortalwrt-${{ env.DEVICE_NAME }}-config
+        path: config-artifacts/
+        retention-days: 2
+        if-no-files-found: warn
+
+    - name: 上传构建产物 (bin固件)
+      uses: actions/upload-artifact@v7
+      with:
+        name: immortalwrt-${{ env.TARGET }}-${{ env.SUBTARGET }}
+        path: bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/immortalwrt-mediatek-filogic-cudy_tr3000-v1-ubootmod*
+        retention-days: 2
+        if-no-files-found: warn
+
+    - name: 提交配置文件和空间使用日志到swlplay/history目录
+      shell: bash
+      if: github.event_name != 'pull_request'   # ← 排除 PR 触发
+      run: |
+        # 配置 Git
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --global url."git@github.com:".insteadOf "https://github.com/"               # ← 保留在这里
+
+        echo "工作目录内容:"
+        ls -la || true
+
+        # 进入子模块 swlplay 目录
+        cd "${{ github.workspace }}/submodule/swlplay"
+
+        # 添加 history 目录下的所有变更
+        git add history/ || true
+
+        echo "Staged files (short status):"
+        git status --short
+
+        echo -e "\nChanges staged (stat):"
+        git diff --cached --stat
+
+        if git diff --staged --quiet; then
+            echo "配置文件无变化，跳过提交"
+        else
+            git commit -m "swlplay $(date '+%Y-%m-%d %H:%M:%S') upload Backup compiled .config & disk usage log [skip ci]"
+
+            # 拉取远程 main 分支，变基时冲突采用本地修改
+            git fetch origin
+            git rebase -X ours origin/main
+
+            # 推送到子模块自己的远程 origin 的 main 分支
+            git push origin HEAD:main
+            echo "编译成功的.config备份、磁盘空间使用日志文件已推送到子模块远程仓库"
+        fi
+
+    - name: 提取完整内核版本
+      id: kernel_ver
+      run: |
+        # 查找内核目录
+        tree -L 3 -d ${{ github.workspace }}/build_dir/ || true
+        KERNEL_DIR=$(find build_dir/target-* -maxdepth 3 -type d \
+            -name "linux-[0-9]*.[0-9]*" \
+            2>/dev/null | head -1)
+
+        if [ -n "$KERNEL_DIR" ]; then
+            KERNEL_VER=$(basename "$KERNEL_DIR" | sed 's/linux-//')
+            echo "Found kernel version: $KERNEL_VER"
+        else
+            MAIN_VER=$(grep "^KERNEL_PATCHVER:=" target/linux/${{ env.TARGET }}/Makefile | cut -d'=' -f2 | xargs)
+            if [ -n "$MAIN_VER" ]; then
+                KERNEL_VER="${MAIN_VER}.0"
+                echo "Using fallback version: $KERNEL_VER"
+            else
+                KERNEL_VER="unknown"
+                echo "Warning: Could not determine kernel version"
+            fi
+        fi
+
+        echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_ENV
+        echo "Final kernel version: $KERNEL_VER"
+        echo "发布时间（北京时间）: $(date '+%Y-%m-%d %H:%M:%S')" > release.txt
+
+    - name: 上传固件到发布页
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: ${{ env.DEVICE_NAME }}-immortalwrt
+        name: ${{ env.DEVICE_NAME }} immortalwrt (kernel ${{ env.KERNEL_VER }})
+        # 可以发布带北京时间、构建信息、文件列表等动态内容
+        body_path: release.txt
+        # 注意：overwritee_files 不会删除旧版本的不同名文件
+        overwrite_files: true   # 如果有同名文件则覆盖
+        files: |
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*uboot.fip
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*recovery.itb
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*preloader.bin
+          bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/*sysupgrade.itb
