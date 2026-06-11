@@ -173,7 +173,7 @@ jobs:
         run: |
           echo "=== 完整构建软件包和最终固件 ==="
           # make package/node/compile -j$(nproc) V=s
-          make -j$(($(nproc) + 1))
+          make -j$(($(nproc) + 1)) V=sc
 
           # 空间使用记录
           echo "编译结束时:" >> ${{ github.workspace }}/submodule/swlplay/history/${{ env.DEVICE_NAME }}_space_usage.log
