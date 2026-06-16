@@ -1,0 +1,455 @@
+name: Build R86S x86_64 ImmortalWrt_1-2
+
+on:
+  # 手动触发：允许在网页上手动触发
+  workflow_dispatch:
+
+env:
+  TZ: Asia/Shanghai
+  TARGET: x86
+  SUBTARGET: 64
+  DEVICE_NAME: R86S
+
+jobs:
+  build-stage1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查服务器性能
+        run: |
+          echo "-------------------------------CPU信息-------------------------------"
+          # 物理 CPU 数量（插槽数）
+          phys_cpus=$(lscpu | grep "^Socket(s):" | awk '{print $2}')
+          if [ -z "$phys_cpus" ]; then
+            phys_cpus=$(cat /proc/cpuinfo | grep "physical id" | sort -u | wc -l)
+          fi
+          echo "CPU物理数量: $phys_cpus"
+          echo "CPU型号: $(lscpu | grep "^Model name:" | cut -d: -f2 | sed 's/^[ \t]*//')"
+          echo "CPU核心数: $(nproc) 核"
+          echo ""
+          echo "-------------------------------内存信息-------------------------------"
+          # 直接显示 free -h 输出，更直观
+          echo "总物理内存："
+          free -h | grep Mem | awk '{print "总内存: " $2}'
+          echo "可用内存："
+          free -h | grep Mem | awk '{print "可用: " $7}'
+          echo ""
+
+          echo "-------------------------------硬盘信息-------------------------------"
+          echo "硬盘数量：$(lsblk -d -o TYPE | grep -c "^disk$")"
+          echo ""
+          # 显示物理磁盘列表（名称、大小、型号）
+          echo "物理磁盘列表："
+          lsblk -d -o NAME,SIZE,MODEL 2>/dev/null || echo "无法获取磁盘型号"
+          echo ""
+          # 显示真实文件系统使用情况（排除虚拟文件系统）
+          echo "挂载点使用情况："
+          df -h
+
+      - name: 删除目录扩大可用空间
+        run: |
+          echo "删除各目录的空间明细"
+          sudo du -sh /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null
+
+          echo "删除目录总空间"
+          sudo du -ch /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null | tail -1
+
+          echo "删除目录"
+          sudo swapoff -a
+          sudo rm -rf /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift
+
+      - name: 安装编译依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils bison build-essential bzip2 ccache diffutils findutils flex g++-multilib gawk gcc gcc-multilib gettext git grep libc-dev libelf-dev \
+            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which        
+          test -f /usr/include/bits/libc-header-start.h && echo "头文件检查通过" || { echo "缺失 libc-header-start.h"; exit 1; }
+
+      - name: 编译依赖按装后磁盘空间
+        run: df -h
+
+      - name: 检出仓库
+        uses: actions/checkout@v6
+        with:
+          # 确保拉取所有分支和历史，以便后续推送
+          fetch-depth: 1
+          submodules: recursive
+          persist-credentials: false
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 配置 SSH 密钥
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 恢复编译文件
+        uses: actions/cache/restore@v5
+        with:
+          path: build-artifacts-stage2.tar.zst
+          key: immortalwrt-${{ github.run_id }}
+          restore-keys: immortalwrt-
+
+      - name: 恢复源代码文件
+        uses: actions/cache/restore@v5
+        with:
+          path: dl.tar.zst
+          key: dl-${{ github.run_id }}
+          restore-keys: dl-
+
+      - name: 解压编译和源代码文件
+        run: |
+          # mkdir -p source
+          if [ -f build-artifacts-stage2.tar.zst ] && [ -f dl.tar.zst ]; then
+            tar -I zstd -xf build-artifacts-stage2.tar.zst
+            tar -I zstd -xf dl.tar.zst
+            rm -f build-artifacts-stage2.tar.zst dl.tar.zst
+          else
+            echo "build-artifacts-stage2.tar.zst or dl.tar.zst not found, skip extraction"
+          fi
+
+      - name: 重置immortalwrt仓库及官方软件源更新
+        run: |
+          set -ex
+          echo "重置immortalwrt仓库"
+          git fetch origin main
+          git reset --hard origin/main   # 把本地 main 完全指向远程 main
+          echo "开始更新feeds"
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: .config文件配置
+        run: |
+          echo "配置编译目标为 ${{ env.TARGET }}/${{ env.SUBTARGET }}"
+          # 复制预定义的配置
+          ls -la ${{ github.workspace }}/submodule/swlplay/config/ || true
+          cp ${{ github.workspace }}/submodule/swlplay/config/${{ env.DEVICE_NAME }}.config ${{ github.workspace }}/.config
+          ls -la ${{ github.workspace }}/ || true                      
+          make defconfig
+          ls -la || true
+
+      - name: 构建工具链
+        # working-directory: source
+        run: |
+          echo "=== 构建工具链==="     
+          make toolchain/compile -j$(nproc) V=s
+
+      - name: 清理 build_dir 中的旧版本目录（支持白名单）
+        run: |
+          cd build_dir/target-x86_64_musl
+
+          # 白名单：这些包名的所有版本都会保留（不删除）
+          WHITELIST=("fuse")
+
+          # 临时文件
+          PKG_LIST="/tmp/pkg_dirs.txt"
+          KEEP_LIST="/tmp/keep_dirs.txt"
+          > "$PKG_LIST"
+
+          # 查找所有可能包含版本号的目录（深度不超过2）
+          find . -maxdepth 2 -type d -name "*-[0-9]*" | sed 's|^\./||' | while read -r dir; do
+            base=$(basename "$dir")
+            pkg=""; ver=""
+            if [[ "$base" =~ - || "$base" =~ _ ]]; then
+              sep=$(echo "$base" | grep -o '[-_][^-_]*$' | head -c1)
+              ver_candidate="${base##*$sep}"
+              pkg_candidate="${base%$sep$ver_candidate}"
+              if [[ "$ver_candidate" =~ ^[0-9vV] ]]; then
+                pkg="$pkg_candidate"; ver="$ver_candidate"
+              fi
+            fi
+            if [ -z "$pkg" ]; then
+              if [[ "$base" =~ ^([a-zA-Z]+[0-9]+\.[0-9]+) ]]; then
+                pkg="${BASH_REMATCH[1]}"; ver="${base#$pkg}"; ver="${ver#[-._]}"
+              fi
+            fi
+            if [ -z "$pkg" ]; then
+              pkg="$base"; ver="0"
+            fi
+            echo -e "$pkg\t$ver\t$dir" >> "$PKG_LIST"
+          done
+
+          # 按包名和版本号排序
+          sort -k1,1 -k2,2V "$PKG_LIST" > /tmp/sorted_dirs.txt
+
+          # 生成保留列表：白名单包的所有目录 + 非白名单每个包的最新版本
+          awk -F'\t' '
+            BEGIN {
+              split("'"${WHITELIST[*]}"'", tmp, " ");
+              for (i in tmp) white[tmp[i]] = 1;
+            }
+            {
+              pkg = $1;
+              dir = $3;
+              if (pkg in white) {
+                # 白名单：记录所有目录
+                whitelist_dirs[pkg] = whitelist_dirs[pkg] " " dir;
+              } else {
+                # 非白名单：记录每个包的最新版本（由于已排序，最后出现的即为最新）
+                nonwhite_latest[pkg] = dir;
+                nonwhite_count[pkg]++;
+              }
+            }
+            END {
+              # 输出白名单的所有目录
+              for (pkg in whitelist_dirs) {
+                split(whitelist_dirs[pkg], arr, " ");
+                for (i in arr) if (arr[i] != "") print arr[i];
+              }
+              # 输出非白名单中每个包的最新版本（有多个版本时只留最新，单个版本也保留）
+              for (pkg in nonwhite_latest) {
+                print nonwhite_latest[pkg];
+              }
+            }
+          ' /tmp/sorted_dirs.txt | sort -u > "$KEEP_LIST"
+
+          # 删除不在保留列表中的目录
+          while IFS= read -r line; do
+            pkg=$(echo "$line" | cut -f1)
+            dir=$(echo "$line" | cut -f3)
+            if ! grep -qxF "$dir" "$KEEP_LIST"; then
+              echo "Removing $dir"
+              rm -rf "$dir"
+            fi
+          done < "$PKG_LIST"
+
+      - name: 清理 dl 中的旧版本文件（支持白名单）
+        run: |
+          cd dl
+
+          # 白名单：这些包名的所有版本都会保留（不删除）
+          WHITELIST=("fuse")
+
+          # 临时文件
+          PKG_LIST="/tmp/dl_pkg_list.txt"
+          KEEP_LIST="/tmp/dl_keep.txt"
+          > "$PKG_LIST"
+
+          # 查找所有压缩包文件（支持常见后缀）
+          find . -maxdepth 1 -type f \( -name "*.tar.*" -o -name "*.tgz" -o -name "*.zip" -o -name "*.bz2" -o -name "*.xz" -o -name "*.tar.zst" \) | sed 's|^\./||' | while read -r file; do
+            # 去除压缩后缀得到 basename
+            base=$(echo "$file" | sed -E 's/\.(tar\.(gz|bz2|xz|zst)|tgz|tbz2|zip|bz2|xz)$//')
+            pkg=""; ver=""
+            # 尝试用最后一个 - 或 _ 分割
+            if [[ "$base" =~ - || "$base" =~ _ ]]; then
+              sep=$(echo "$base" | grep -o '[-_][^-_]*$' | head -c1)
+              ver_candidate="${base##*$sep}"
+              pkg_candidate="${base%$sep$ver_candidate}"
+              if [[ "$ver_candidate" =~ ^[0-9vV] ]]; then
+                pkg="$pkg_candidate"; ver="$ver_candidate"
+              fi
+            fi
+            # 如果上面失败，尝试匹配 go1.26 模式（无分隔符）
+            if [ -z "$pkg" ]; then
+              if [[ "$base" =~ ^([a-zA-Z]+[0-9]+\.[0-9]+) ]]; then
+                pkg="${BASH_REMATCH[1]}"; ver="${base#$pkg}"; ver="${ver#[-._]}"
+              fi
+            fi
+            # 仍然失败则整个文件名作为包名
+            if [ -z "$pkg" ]; then
+              pkg="$base"; ver="0"
+            fi
+            echo -e "$pkg\t$ver\t$file" >> "$PKG_LIST"
+          done
+
+          # 如果没有可解析的文件，退出
+          if [ ! -s "$PKG_LIST" ]; then
+            echo "没有找到可解析的压缩包，退出"
+            exit 0
+          fi
+
+          # 按包名和版本号排序
+          sort -k1,1 -k2,2V "$PKG_LIST" > /tmp/sorted_dl.txt
+
+          # 生成保留列表：白名单包的所有文件 + 非白名单每个包的最新版本
+          awk -F'\t' '
+            BEGIN {
+              split("'"${WHITELIST[*]}"'", tmp, " ");
+              for (i in tmp) white[tmp[i]] = 1;
+            }
+            {
+              pkg = $1;
+              file = $3;
+              if (pkg in white) {
+                # 白名单：记录所有文件
+                whitelist_files[pkg] = whitelist_files[pkg] " " file;
+              } else {
+                # 非白名单：记录每个包的最新版本（由于已排序，最后出现的即为最新）
+                nonwhite_latest[pkg] = file;
+                nonwhite_count[pkg]++;
+              }
+            }
+            END {
+              # 输出白名单的所有文件
+              for (pkg in whitelist_files) {
+                split(whitelist_files[pkg], arr, " ");
+                for (i in arr) if (arr[i] != "") print arr[i];
+              }
+              # 输出非白名单中每个包的最新版本
+              for (pkg in nonwhite_latest) {
+                print nonwhite_latest[pkg];
+              }
+            }
+          ' /tmp/sorted_dl.txt | sort -u > "$KEEP_LIST"
+
+          # 删除不在保留列表中的文件
+          while IFS= read -r line; do
+            pkg=$(echo "$line" | cut -f1)
+            file=$(echo "$line" | cut -f3)
+            if ! grep -qxF "$file" "$KEEP_LIST"; then
+              echo "Removing $file"
+              rm -f "$file"
+            fi
+          done < "$PKG_LIST"
+
+      - name: 打包阶段1编译文件
+        run: |
+          # cd source
+          mkdir -p /tmp
+          tar -c --use-compress-program="zstd -T0 -10" \
+              -f /tmp/build-artifacts-stage1.tar.zst \
+            --exclude='./bin' \
+            . && mv /tmp/build-artifacts-stage1.tar.zst .
+
+      - name: 上传阶段1编译文件
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-stage1
+          path: build-artifacts-stage1.tar.zst
+          retention-days: 2
+          if-no-files-found: warn
+
+  build-stage2:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # ← 保留在这里
+    needs: build-stage1      
+    steps:
+      - name: 检查服务器性能
+        run: |
+          echo "-------------------------------CPU信息-------------------------------"
+          # 物理 CPU 数量（插槽数）
+          phys_cpus=$(lscpu | grep "^Socket(s):" | awk '{print $2}')
+          if [ -z "$phys_cpus" ]; then
+            phys_cpus=$(cat /proc/cpuinfo | grep "physical id" | sort -u | wc -l)
+          fi
+          echo "CPU物理数量: $phys_cpus"
+          echo "CPU型号: $(lscpu | grep "^Model name:" | cut -d: -f2 | sed 's/^[ \t]*//')"
+          echo "CPU核心数: $(nproc) 核"
+          echo ""
+          echo "-------------------------------内存信息-------------------------------"
+          # 直接显示 free -h 输出，更直观
+          echo "总物理内存："
+          free -h | grep Mem | awk '{print "总内存: " $2}'
+          echo "可用内存："
+          free -h | grep Mem | awk '{print "可用: " $7}'
+          echo ""
+
+          echo "-------------------------------硬盘信息-------------------------------"
+          echo "硬盘数量：$(lsblk -d -o TYPE | grep -c "^disk$")"
+          echo ""
+          # 显示物理磁盘列表（名称、大小、型号）
+          echo "物理磁盘列表："
+          lsblk -d -o NAME,SIZE,MODEL 2>/dev/null || echo "无法获取磁盘型号"
+          echo ""
+          # 显示真实文件系统使用情况（排除虚拟文件系统）
+          echo "挂载点使用情况："
+          df -h
+
+      - name: 删除目录扩大可用空间
+        run: |
+          echo "删除各目录的空间明细"
+          sudo du -sh /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null
+
+          echo "删除目录总空间"
+          sudo du -ch /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null | tail -1
+
+          echo "删除目录"
+          sudo swapoff -a
+          sudo rm -rf /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift
+
+      - name: 安装编译依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils bison build-essential bzip2 ccache diffutils findutils flex g++-multilib gawk gcc gcc-multilib gettext git grep libc-dev libelf-dev \
+            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which        
+          test -f /usr/include/bits/libc-header-start.h && echo "头文件检查通过" || { echo "缺失 libc-header-start.h"; exit 1; }
+
+      - name: 编译依赖按装后磁盘空间
+        run: df -h
+
+      - name: 检出仓库
+        uses: actions/checkout@v6
+        with:
+          # 确保拉取所有分支和历史，以便后续推送
+          fetch-depth: 1
+          submodules: recursive
+          persist-credentials: false
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 配置 SSH 密钥
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 下载阶段1编译文件
+        uses: actions/download-artifact@v8
+        with:
+          name: build-stage1
+          path: .
+
+      - name: 解压阶段1编译文件
+        run: |
+          # mkdir -p source
+          if [ -f build-artifacts-stage1.tar.zst ]; then
+            tar -I zstd -xf build-artifacts-stage1.tar.zst
+            rm -f build-artifacts-stage1.tar.zst
+          else
+            echo "build-artifacts-stage1.tar.zst not found, skip extraction"
+          fi
+
+      - name: 验证工作区是否真备Makefile构建文件
+        run: |
+          if [ -f Makefile ]; then
+            echo "✓ Makefile found"
+          else
+            echo "✗ Makefile NOT found"
+            exit 1
+          fi
+
+      - name: 构建node.js
+        # working-directory: source
+        run: |
+          echo "=== 构建node.js==="
+          make package/node/compile -j$(nproc) V=s
+
+      - name: 下载所有源代码
+        # working-directory: source
+        run: make download -j$(nproc) V=s
+
+      - name: 打包阶段2编译文件
+        run: |
+          # cd source
+          mkdir -p /tmp
+          tar -c --use-compress-program="zstd -T0 -10" --ignore-failed-read \
+              -f build-artifacts-stage2.tar.zst \
+              build_dir feeds staging_dir
+          tar -c --use-compress-program="zstd -T0 -10" --ignore-failed-read \
+              -f dl.tar.zst \
+              dl
+
+      - name: 缓存阶段2编译文件
+        uses: actions/cache/save@v5
+        with:
+          path: build-artifacts-stage2.tar.zst
+          key: immortalwrt-${{ github.run_id }}
+
+      - name: 缓存dl文件
+        uses: actions/cache/save@v5
+        with:
+          path: dl.tar.zst
+          key: dl-${{ github.run_id }}
