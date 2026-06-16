@@ -1,0 +1,60 @@
+[submodule "submodule/ddns-go"]
+	path = submodule/ddns-go
+	url = git@github.com:swlplay/ddns-go.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/Lienol"]
+	path = submodule/Lienol
+	url = git@github.com:swlplay/Lienol.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/luci-app-advancedplus"]
+	path = submodule/luci-app-advancedplus
+	url = git@github.com:swlplay/luci-app-advancedplus.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/luci-app-tcpdump"]
+	path = submodule/luci-app-tcpdump
+	url = git@github.com:swlplay/luci-app-tcpdump.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/netspeedtest"]
+	path = submodule/netspeedtest
+	url = git@github.com:swlplay/netspeedtest.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/pingdongyi"]
+	path = submodule/pingdongyi
+	url = git@github.com:swlplay/pingdongyi.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/sundaqiang"]
+	path = submodule/sundaqiang
+	url = git@github.com:swlplay/sundaqiang.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/swlplay"]
+	path = submodule/swlplay
+	url = git@github.com:swlplay/swlplay.git
+	branch = main
+	fetch = +refs/heads/main:refs/remotes/origin/main
+[submodule "submodule/thunder"]
+	path = submodule/thunder
+	url = git@github.com:swlplay/thunder.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/timecontrol"]
+	path = submodule/timecontrol
+	url = git@github.com:swlplay/timecontrol.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/turboacc"]
+	path = submodule/turboacc
+	url = git@github.com:swlplay/turboacc.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
+[submodule "submodule/xuanranran"]
+	path = submodule/xuanranran
+	url = git@github.com:swlplay/xuanranran.git
+	branch = packages
+	fetch = +refs/heads/packages:refs/remotes/origin/packages
