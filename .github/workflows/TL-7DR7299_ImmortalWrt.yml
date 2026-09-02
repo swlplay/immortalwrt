@@ -1,4 +1,4 @@
-name: Build Cudy WR3000S ImmortalWrt
+name: Build TP-Link TL-7DR7299 ImmortalWrt
 
 on:
   # 代码推送触发：推送到 master 分支时触发
