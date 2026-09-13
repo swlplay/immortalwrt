@@ -1,0 +1,134 @@
+# mwan3 nftables framework (v4)
+# Standalone ruleset loaded by mwan3's init script via `nft -f` at
+# start_service, before mwan3_ensure_nft_framework. Defines mwan3's
+# own table (inet mwan3), its six address sets, its hook base chains
+# at mangle + 1 priority, and its regular chains.
+#
+# All runtime content (per-interface mwan3_iface_in_* chains, policy
+# chains, sticky-rule chains, setter chains, policy/rule content) is
+# added dynamically by the mwan3 shell scripts.
+#
+# The leading "table inet mwan3" + "delete table inet mwan3" pair is
+# the canonical idempotent atomic-replace idiom: the first statement
+# ensures the table exists (no-op if already present) so the delete
+# can succeed, the second wipes it, and the subsequent definition
+# block recreates it fresh. All three statements run as one atomic
+# nft transaction inside `nft -f`.
+
+table inet mwan3
+delete table inet mwan3
+
+table inet mwan3 {
+	# Connected networks (populated by mwan3rtmon and mwan3_set_connected)
+	set mwan3_connected_v4 {
+		type ipv4_addr
+		flags interval
+		auto-merge
+	}
+	set mwan3_connected_v6 {
+		type ipv6_addr
+		flags interval
+		auto-merge
+	}
+
+	# Custom routing table networks
+	set mwan3_custom_v4 {
+		type ipv4_addr
+		flags interval
+		auto-merge
+	}
+	set mwan3_custom_v6 {
+		type ipv6_addr
+		flags interval
+		auto-merge
+	}
+
+	# Dynamic networks
+	set mwan3_dynamic_v4 {
+		type ipv4_addr
+		flags interval
+		auto-merge
+	}
+	set mwan3_dynamic_v6 {
+		type ipv6_addr
+		flags interval
+		auto-merge
+	}
+
+	# Entry point for prerouting
+	# priority mangle + 1: runs AFTER fw4's main mangle and after pbr.
+	# Order-independence with pbr is achieved by using non-destructive
+	# masked save/restore via vmap-dispatch into per-mark OR-immediate
+	# setter chains (mwan3_or_meta_*, mwan3_or_ct_*); see common.sh.
+	chain mwan3_prerouting {
+		type filter hook prerouting priority mangle + 1; policy accept;
+	}
+
+	# Entry point for locally-originated traffic
+	# type route so mark changes trigger re-routing
+	chain mwan3_output {
+		type route hook output priority mangle + 1; policy accept;
+	}
+
+	# Interface input marking (jumped to from mwan3_prerouting/mwan3_output)
+	chain mwan3_ifaces_in {
+	}
+
+	# User-defined classification rules
+	chain mwan3_rules {
+	}
+
+	# Connected/custom/dynamic destination matching
+	chain mwan3_connected {
+	}
+	chain mwan3_custom {
+	}
+	chain mwan3_dynamic {
+	}
+
+	# IPv6 source-derived routing (no-NAT regime). Jumped from mwan3_prerouting
+	# after the user-rules jump; body populated dynamically by mwan3.sh
+	# (mwan3_set_src_routing_nft) only when ipv6_routing=on.
+	chain mwan3_src_routing_v6 {
+	}
+
+	# IPv6 foreign-source SNAT (NAT hook). Reached from mwan3_postrouting via a jump
+	# added by mwan3_ensure_nft_framework (kept out of this skeleton so a reload,
+	# which flushes mwan3_postrouting, re-adds it without duplicating it at start).
+	# Body populated dynamically by mwan3.sh (mwan3_set_src_routing_nft): per online
+	# IPv6 WAN, first a 1:1 snat prefix-map rule when it is a translating WAN with
+	# accepted maps, then the masquerade floor. NAT statements are terminal for the
+	# flow's NAT lookup, so a mapped flow binds to its 1:1 target and never reaches
+	# the floor, while an uncovered foreign source falls through to the floor and is
+	# masqueraded to the WAN's address. This carries a failover orphan or a steered
+	# or balanced flow out a WAN with a foreign source; native traffic stays
+	# transparent. A no-op until such a flow egresses; empty when ipv6_routing is off.
+
+	chain mwan3_snat_v6 {
+	}
+
+	# IPv6 1:1 prefix-translation inbound map (NAT hook). Reached on the prerouting
+	# nat hook at dstnat - 1, mirroring the srcnat - 1 of mwan3_postrouting so a
+	# carried flow's binding is established before fw4's dstnat rules could act. Body
+	# populated dynamically by mwan3.sh (mwan3_set_src_routing_nft) with one inverse
+	# dnat prefix-map rule per translating WAN, so a peer-initiated packet to a carved
+	# target is reverse-mapped to the carried segment and each carried host is
+	# individually reachable; empty (no-op) when no WAN has accepted maps or when
+	# ipv6_routing is off.
+
+	chain mwan3_dnat_v6 {
+		type nat hook prerouting priority dstnat - 1; policy accept;
+	}
+
+	# IPv6 SNAT for router-originated traffic rerouted by mwan3_output. fw4 does
+	# not masquerade IPv6 by default, so packets rerouted from WAN-A onto WAN-B
+	# would egress with WAN-A's source prefix and be dropped upstream. Opt-in
+	# per interface via the 'snat6' UCI option. Per-iface rules are added
+	# dynamically by mwan3.sh and only fire when (oif == this WAN) AND
+	# (mark == this WAN's mark) AND (saddr is local) AND (saddr != this WAN's
+	# IP). Runs at srcnat - 1 so it fires before fw4's srcnat hook.
+	chain mwan3_postrouting {
+		type nat hook postrouting priority srcnat - 1; policy accept;
+		# the IPv6 foreign-source SNAT jump is added by mwan3_ensure_nft_framework
+	}
+}
