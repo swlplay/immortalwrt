@@ -1,0 +1,141 @@
+{
+	"luci-app-mwan3-status": {
+		"description": "Grant access for luci-app-mwan3 status information",
+		"read": {
+			"cgi-io": [
+				"exec"
+			],
+			"file": {
+				"/usr/sbin/mwan3 status": [
+					"exec"
+				]
+			},
+			"ubus": {
+				"mwan3": [
+					"status",
+					"nftset_info",
+					"nftset_members",
+					"nftset_elements",
+					"resolve_host",
+					"routing_health"
+				]
+			}
+		},
+		"write": {
+			"file": {
+				"/usr/libexec/luci-mwan3 diag gateway *": [
+					"exec"
+				],
+				"/usr/libexec/luci-mwan3 diag tracking *": [
+					"exec"
+				],
+				"/usr/libexec/luci-mwan3 diag rules *": [
+					"exec"
+				],
+				"/usr/libexec/luci-mwan3 diag routes *": [
+					"exec"
+				],
+				"/usr/sbin/mwan3 internal ipv4": [
+					"exec"
+				],
+				"/usr/sbin/mwan3 internal ipv6": [
+					"exec"
+				],
+				"/usr/sbin/mwan3 ifup *": [
+					"exec"
+				],
+				"/usr/sbin/mwan3 ifdown *": [
+					"exec"
+				]
+			},
+			"ubus": {
+				"file": [
+					"exec"
+				],
+				"mwan3": [
+					"nftset_flush",
+					"nftset_reload",
+					"nftset_resolve"
+				]
+			}
+		}
+	},
+	"luci-app-mwan3": {
+		"description": "Grant access for luci-app-mwan3 configuration",
+		"read": {
+			"cgi-io": [
+				"exec"
+			],
+			"file": {
+				"/usr/bin/httping": [
+					"list"
+				],
+				"/usr/bin/nping": [
+					"list"
+				],
+				"/usr/bin/arping": [
+					"list"
+				],
+				"/usr/libexec/luci-mwan3 nftset dump": [
+					"exec"
+				]
+			},
+			"ubus": {
+				"file": [
+					"stat"
+				],
+				"mwan3": [
+					"status",
+					"nftset_info",
+					"nftset_members",
+					"nftset_elements",
+					"resolve_host"
+				]
+			},
+			"uci": [
+				"mwan3",
+				"network"
+			]
+		},
+		"write": {
+			"ubus": {
+				"mwan3": [
+					"nftset_flush",
+					"nftset_reload",
+					"nftset_resolve"
+				]
+			},
+			"uci": [
+				"mwan3"
+			]
+		}
+	},
+	"luci-app-mwan3-notify": {
+		"description": "Grant access to edit the mwan3.user hotplug hook",
+		"read": {
+			"file": {
+				"/etc/mwan3.user": [
+					"read"
+				]
+			},
+			"ubus": {
+				"file": [
+					"read"
+				]
+			}
+		},
+		"write": {
+			"file": {
+				"/etc/mwan3.user": [
+					"write"
+				]
+			},
+			"ubus": {
+				"file": [
+					"write",
+					"remove"
+				]
+			}
+		}
+	}
+}
