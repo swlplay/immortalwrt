@@ -6,13 +6,13 @@ on:
 
 env:
   TZ: Asia/Shanghai
-  TARGET: x86
-  SUBTARGET: 64
-  DEVICE_NAME: R86S
+  CI_TARGET: x86
+  CI_SUBTARGET: 64
+  CI_DEVICE_NAME: R86S
 
 jobs:
   build-stage1:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: 检查服务器性能
         run: |
@@ -47,24 +47,33 @@ jobs:
 
       - name: 删除目录扩大可用空间
         run: |
+          # 开启 nullglob 让通配符无匹配时展开为空，避免 du 和 rm 报错
+          shopt -s nullglob
+
           echo "删除各目录的空间明细"
           sudo du -sh /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
-            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null || true
 
           echo "删除目录总空间"
           sudo du -ch /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
-            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null | tail -1
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null | tail -1 || true
+
+          echo "关闭交换分区"
+          sudo swapoff -a || true
 
           echo "删除目录"
           sudo swapoff -a
+          shopt -s nullglob
           sudo rm -rf /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
-            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift || true
+
+          echo "清理完成"
 
       - name: 安装编译依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y binutils bison build-essential bzip2 ccache diffutils findutils flex g++-multilib gawk gcc gcc-multilib gettext git grep libc-dev libelf-dev \
-            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which        
+            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which libfuse-dev        
           test -f /usr/include/bits/libc-header-start.h && echo "头文件检查通过" || { echo "缺失 libc-header-start.h"; exit 1; }
 
       - name: 编译依赖按装后磁盘空间
@@ -121,10 +130,10 @@ jobs:
 
       - name: .config文件配置
         run: |
-          echo "配置编译目标为 ${{ env.TARGET }}/${{ env.SUBTARGET }}"
+          echo "配置编译目标为 ${{ env.CI_TARGET }}/${{ env.CI_SUBTARGET }}"
           # 复制预定义的配置
           ls -la ${{ github.workspace }}/submodule/swlplay/config/ || true
-          cp ${{ github.workspace }}/submodule/swlplay/config/${{ env.DEVICE_NAME }}.config ${{ github.workspace }}/.config
+          cp ${{ github.workspace }}/submodule/swlplay/config/${{ env.CI_DEVICE_NAME }}.config ${{ github.workspace }}/.config
           ls -la ${{ github.workspace }}/ || true                      
           make defconfig
           ls -la || true
@@ -133,7 +142,7 @@ jobs:
         # working-directory: source
         run: |
           echo "=== 构建工具链==="     
-          make toolchain/compile -j$(nproc) V=s
+          make toolchain/install -j$(nproc) V=s
 
       - name: 清理 build_dir 中的旧版本目录（支持白名单）
         run: |
@@ -321,7 +330,7 @@ jobs:
           if-no-files-found: warn
 
   build-stage2:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write          # ← 保留在这里
     needs: build-stage1      
@@ -359,24 +368,33 @@ jobs:
 
       - name: 删除目录扩大可用空间
         run: |
+          # 开启 nullglob 让通配符无匹配时展开为空，避免 du 和 rm 报错
+          shopt -s nullglob
+
           echo "删除各目录的空间明细"
           sudo du -sh /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
-            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null || true
 
           echo "删除目录总空间"
           sudo du -ch /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
-            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null | tail -1
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift 2>/dev/null | tail -1 || true
+
+          echo "关闭交换分区"
+          sudo swapoff -a || true
 
           echo "删除目录"
           sudo swapoff -a
+          shopt -s nullglob
           sudo rm -rf /opt/hostedtoolcache /swapfile /usr/lib/jvm /usr/local/.ghcup /usr/local/aws-cli /usr/local/aws-sam-cli /usr/local/julia* /usr/local/lib/android \
-            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift
+            /usr/local/share/chromium /usr/local/share/powershell /usr/share/az* /usr/share/dotnet /usr/share/miniconda /usr/share/swift || true
+
+          echo "清理完成"
 
       - name: 安装编译依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y binutils bison build-essential bzip2 ccache diffutils findutils flex g++-multilib gawk gcc gcc-multilib gettext git grep libc-dev libelf-dev \
-            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which        
+            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which libfuse-dev        
           test -f /usr/include/bits/libc-header-start.h && echo "头文件检查通过" || { echo "缺失 libc-header-start.h"; exit 1; }
 
       - name: 编译依赖按装后磁盘空间
@@ -425,7 +443,7 @@ jobs:
         # working-directory: source
         run: |
           echo "=== 构建node.js==="
-          make package/node/compile -j$(nproc) V=s
+          make package/node/install -j$(nproc) V=s
 
       - name: 下载所有源代码
         # working-directory: source
