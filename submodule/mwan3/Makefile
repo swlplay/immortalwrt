@@ -14,7 +14,7 @@ PKG_RELEASE:=1
 PKG_MAINTAINER:=Florian Eckert <fe@dev.tdt.de>
 PKG_LICENSE:=GPL-2.0
 PKG_CONFIG_DEPENDS:=CONFIG_IPV6
-PKG_BUILD_DEPENDS:=libnetfilter_conntrack libmnl
+PKG_BUILD_DEPENDS:=libnetfilter-conntrack libmnl
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -24,7 +24,7 @@ define Package/mwan3
    SUBMENU:=Routing and Redirection
    DEPENDS:= \
      +ip-full \
-     +libnetfilter-conntrack3 \
+     +libnetfilter-conntrack \
      +kmod-nft-core \
      +nftables-json \
      +rpcd-mod-ucode \
