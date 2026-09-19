@@ -133,7 +133,7 @@ jobs:
           echo "开始更新feeds"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          ./scripts/feeds uninstall ddns-go mwan3 smartdns qbittorrent qBittorrent-Enhanced-Edition qt6base qt6tools luci-app-mwan3 luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go || true
+          ./scripts/feeds uninstall ddns-go smartdns qbittorrent qBittorrent-Enhanced-Edition qt6base qt6tools luci-app-smartdns luci-app-openclash luci-app-qbittorrent luci-app-unblockneteasemusic luci-app-ddns-go || true
 
           echo "正在更新所有子模块到 main 分支最新"
           git submodule update --init --remote --depth 1 --force
