@@ -142,7 +142,11 @@ jobs:
         # working-directory: source
         run: |
           echo "=== 构建工具链==="     
+          make tools/install -j$(nproc) V=s
+
           make toolchain/install -j$(nproc) V=s
+
+          make target/compile -j$(nproc) V=s
 
       - name: 清理 build_dir 中的旧版本目录（支持白名单）
         run: |
