@@ -146,8 +146,13 @@ jobs:
           # ls -la ${{ github.workspace }}/feeds/packages/libs/libffi/ || true
 
           cp -r ${{ github.workspace }}/submodule/* ${{ github.workspace }}/package/feeds/
+          mkdir -p ${{ github.workspace }}/files/etc/uci-defaults
+          cp -r ${{ github.workspace }}/submodule/swlplay/99-add-ports-iptv_route-rclone ${{ github.workspace }}/files/etc/uci-defaults/
+          chmod 0755 ${{ github.workspace }}/files/etc/uci-defaults/99-add-ports-iptv_route-rclone
           rm -rf ${{ github.workspace }}/package/feeds/swlplay
+          rm -rf ${{ github.workspace }}/submodule
           ls -la ${{ github.workspace }}/package/feeds/ || true
+          ls -la ${{ github.workspace }}/files/etc/uci-defaults/ || true
 
       - name: .config文件配置
         run: |
