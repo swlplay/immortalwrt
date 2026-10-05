@@ -118,6 +118,10 @@ jobs:
         rm -rf ${{ github.workspace }}/package/feeds/swlplay
         ls -la ${{ github.workspace }}/package/feeds/ || true
 
+        mkdir -p ${{ github.workspace }}/files
+        cp -rp ${{ github.workspace }}/submodule/swlplay/TL-7DR7299/. ${{ github.workspace }}/files
+        chmod 0755 ${{ github.workspace }}/files/etc/uci-defaults/99-TL-7DR7299
+
         # 创建util-linux补丁
         # bash ${{ github.workspace }}/swlplay/create-util-linux-patch.sh
         # ls -la ${{ github.workspace }}/swlplay/
