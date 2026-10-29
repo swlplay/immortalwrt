@@ -12,7 +12,7 @@ env:
 
 jobs:
   build-stage1:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     steps:
       - name: 检查服务器性能
         run: |
@@ -73,7 +73,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y binutils bison build-essential bzip2 ccache diffutils findutils flex g++-multilib gawk gcc gcc-multilib gettext git grep libc-dev libelf-dev \
-            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which libfuse-dev        
+            libfuse-dev libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which
           test -f /usr/include/bits/libc-header-start.h && echo "头文件检查通过" || { echo "缺失 libc-header-start.h"; exit 1; }
 
       - name: 编译依赖按装后磁盘空间
@@ -334,7 +334,7 @@ jobs:
           if-no-files-found: warn
 
   build-stage2:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     permissions:
       contents: write          # ← 保留在这里
     needs: build-stage1      
@@ -398,7 +398,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y binutils bison build-essential bzip2 ccache diffutils findutils flex g++-multilib gawk gcc gcc-multilib gettext git grep libc-dev libelf-dev \
-            libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which libfuse-dev        
+            libfuse-dev libncurses-dev libssl-dev libz-dev make perl python3 rsync subversion tree unzip which      
           test -f /usr/include/bits/libc-header-start.h && echo "头文件检查通过" || { echo "缺失 libc-header-start.h"; exit 1; }
 
       - name: 编译依赖按装后磁盘空间
